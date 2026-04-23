@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CraftNova – AI Operating System</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#3B82F6',
+            secondary: '#8B5CF6',
+            bg: '#0B0F1A',
+            card: '#111827',
+            border: '#1F2937'
+          }
+        }
+      }
+    }
+  </script>
+
+  <script>
+
+    let history = JSON.parse(localStorage.getItem("craftnova_history")) || [
+      { role: "system", content: "You are CraftNova, an AI Operating System." }
+    ];
+
+    function detectAgent(input) {
+      const text = input.toLowerCase();
+      if (text.includes("marketing") || text.includes("content")) return "content";
+      if (text.includes("data") || text.includes("report")) return "data";
+      if (text.includes("automation") || text.includes("workflow")) return "automation";
+      return "general";
+    }
+
+    function generateContent(input) {
+      return `Generated Marketing Content:\n\n- Hook\n- Body\n- CTA\n\nTopic: ${input}`;
+    }
+
+    function analyzeData(input) {
+      return `Data Analysis:\n\nInsights...\n\nInput: ${input}`;
+    }
+
+    function createWorkflow(input) {
+      return `Automation Workflow:\n\nSteps...\n\nTask: ${input}`;
+    }
+
+    function executeAgent(agent, input) {
+      if (agent === "content") return generateContent(input);
+      if (agent === "data") return analyzeData(input);
+      if (agent === "automation") return createWorkflow(input);
+      return null;
+    }
+
+    function downloadFile(content) {
+      const blob = new Blob([content], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "craftnova_output.txt";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    async function sendToAPI(content, agent) {
+      try {
+        const res = await fetch("http://localhost:3001/send-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: content, agent })
+        });
+        const data = await res.json();
+        return data.status;
+      } catch (err) {
+        return "API Error";
+      }
+    }
+
+    async function loadHistory() {
+      const panel = document.getElementById("historyPanel");
+      if (!panel) return;
+
+      try {
+        const res = await fetch("http://localhost:3001/history");
+        const data = await res.json();
+
+        if (!data.length) {
+          panel.innerHTML = `<p>No history yet</p>`;
+          return;
+        }
+
+        panel.innerHTML = "";
+
+        data.forEach(item => {
+          panel.innerHTML += `
+            <div>
+              <p>[${item.agent}]</p>
+              <p>${item.content}</p>
+            </div>
+          `;
+        });
+
+      } catch {
+        panel.innerHTML = `<p>Failed to load</p>`;
+      }
+    }
+
+    async function runAI() {
+      const input = document.getElementById("prompt");
+      const output = document.getElementById("output");
+
+      const text = input.value.trim();
+      if (!text) return;
+
+      const agent = detectAgent(text);
+
+      output.innerHTML += `<p>> ${text}</p>`;
+
+      const result = executeAgent(agent, text);
+
+      if (result) {
+        output.innerHTML += `<p>${result}</p>`;
+        await sendToAPI(result, agent);
+        loadHistory();
+      }
+
+      input.value = "";
+    }
+
+    function clearMemory() {
+      localStorage.removeItem("craftnova_history");
+      location.reload();
+    }
+
+    // ===== NEW LEAD FUNCTION =====
+    async function submitLead() {
+      const name = document.getElementById("leadName").value;
+      const email = document.getElementById("leadEmail").value;
+      const business = document.getElementById("leadBusiness").value;
+
+      if (!name || !email || !business) {
+        alert("Fill all fields");
+        return;
+      }
+
+      try {
+        const res = await fetch("http://localhost:3001/lead", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name,
+            email,
+            business,
+            message: "Free audit request"
+          })
+        });
+
+        const data = await res.json();
+        alert("Audit sent! Check your email.");
+        console.log(data);
+
+      } catch (err) {
+        alert("Error submitting lead");
+      }
+    }
+
+    window.onload = loadHistory;
+
+  </script>
+</head>
+
+<body class="bg-bg text-white">
+
+<div class="flex">
+
+  <aside class="w-64 p-4">
+    <h1>CraftNova</h1>
+  </aside>
+
+  <main class="flex-1 p-6">
+
+    <!-- 🔥 NEW LEAD FORM -->
+    <div class="bg-card p-4 mb-6">
+      <h2>Free Marketing Audit</h2>
+
+      <input id="leadName" placeholder="Name"><br>
+      <input id="leadEmail" placeholder="Email"><br>
+      <input id="leadBusiness" placeholder="Business"><br><br>
+
+      <button onclick="submitLead()">Get Free Audit</button>
+    </div>
+
+    <!-- AI PANEL -->
+    <div>
+      <div id="output"></div>
+
+      <input id="prompt" placeholder="Ask...">
+      <button onclick="runAI()">Run</button>
+
+      <button onclick="clearMemory()">Clear</button>
+    </div>
+
+    <!-- HISTORY -->
+    <div id="historyPanel"></div>
+
+  </main>
+
+</div>
+
+</body>
+</html>
