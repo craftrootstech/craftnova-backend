@@ -18,18 +18,18 @@ app.use(bodyParser.json());
 const JWT_SECRET = process.env.JWT_SECRET;
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-// ===== HEALTH CHECK ROUTE =====
+// ===== HEALTH CHECK =====
 app.get("/", (req, res) => {
   res.send("CraftNova Backend is Running 🚀");
 });
 
-// ===== MONGODB CONNECTION =====
+// ===== DATABASE =====
 mongoose.connect(process.env.MONGO_URI);
 
 const db = mongoose.connection;
 
 db.on("error", (err) => {
-  console.error("MongoDB connection error:", err.message);
+  console.error("MongoDB error:", err.message);
 });
 
 db.once("open", () => {
@@ -54,6 +54,11 @@ const LeadSchema = new mongoose.Schema({
   name: String,
   email: String,
   business: String,
+  industry: String,
+  facebook: String,
+  instagram: String,
+  linkedin: String,
+  goal: String,
   message: String,
   createdAt: { type: Date, default: Date.now }
 });
@@ -63,13 +68,11 @@ const User = mongoose.model("User", UserSchema);
 const Output = mongoose.model("Output", OutputSchema);
 const Lead = mongoose.model("Lead", LeadSchema);
 
-// ===== AUTH MIDDLEWARE =====
+// ===== AUTH =====
 function authMiddleware(req, res, next) {
   const token = req.headers.authorization;
 
-  if (!token) {
-    return res.status(401).json({ error: "No token provided" });
-  }
+  if (!token) return res.status(401).json({ error: "No token" });
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
@@ -86,12 +89,11 @@ app.post("/register", async (req, res) => {
 
   try {
     const hashed = await bcrypt.hash(password, 10);
-
     await User.create({ email, password: hashed });
 
     res.json({ status: "User created" });
-  } catch (err) {
-    res.status(400).json({ error: "User already exists" });
+  } catch {
+    res.status(400).json({ error: "User exists" });
   }
 });
 
@@ -117,53 +119,90 @@ app.post("/login", async (req, res) => {
   }
 });
 
-// ===== 🚀 LEAD CAPTURE + AI PIPELINE =====
+// ===== 🚀 LEAD + INTELLIGENCE + OUTREACH =====
 app.post("/lead", async (req, res) => {
-  const { name, email, business, message } = req.body;
+  const {
+    name,
+    email,
+    business,
+    industry,
+    facebook,
+    instagram,
+    linkedin,
+    goal,
+    message
+  } = req.body;
 
   try {
-    const lead = await Lead.create({ name, email, business, message });
+    // ===== SAVE LEAD =====
+    const lead = await Lead.create({
+      name,
+      email,
+      business,
+      industry,
+      facebook,
+      instagram,
+      linkedin,
+      goal,
+      message
+    });
+
+    // ===== 🧠 INTELLIGENCE AGENT =====
+    const platformInsights = `
+Platform Presence:
+- Facebook: ${facebook ? "Provided ✅" : "Missing ❌"}
+- Instagram: ${instagram ? "Provided ✅" : "Missing ❌"}
+- LinkedIn: ${linkedin ? "Provided ✅" : "Missing ❌"}
+`;
+
+    const strategy = `
+Recommended Strategy:
+1. ${instagram ? "Leverage Instagram Reels" : "Create Instagram presence"}
+2. Optimize messaging for ${industry || "your industry"}
+3. Focus on ${goal || "lead generation"}
+4. Improve CTAs and funnel structure
+`;
 
     const aiOutput = `
 Hi ${name},
 
-Here’s your free marketing audit for ${business}:
+Your AI Marketing Audit for:
 
-🔍 Key Observations:
-- Your business likely needs a stronger online presence
-- Inconsistent content reduces visibility and engagement
-- Your messaging may not clearly convert visitors into customers
+🏢 ${business}
+🏭 ${industry || "General Industry"}
 
-🚀 Recommendations:
-1. Post consistently (3–5 times per week)
-2. Focus on short-form video (Reels/TikTok)
-3. Improve your call-to-action (CTA)
-4. Highlight your unique value clearly
+${platformInsights}
 
-📈 Growth Opportunity:
-With the right strategy, ${business} can significantly increase visibility, engagement, and conversions.
+🚨 Key Issues:
+- Inconsistent content reduces reach
+- Weak CTAs reduce conversions
+- Poor funnel structure limits growth
 
-👉 Next Step:
-We can help you implement this strategy and grow your business.
+🚀 ${strategy}
 
-— CraftNova AI
+📈 Growth Potential:
+With proper execution, ${business} can increase conversions within 30–60 days.
+
+— CraftNova Intelligence System
 `;
 
+    // ===== SAVE OUTPUT =====
     await Output.create({
       content: aiOutput,
-      agent: "audit",
+      agent: "intelligence",
       userId: null
     });
 
+    // ===== 📧 SEND EMAIL =====
     await resend.emails.send({
       from: "noreply@craftrootstech.com",
       to: email,
-      subject: "Your Free Marketing Audit",
+      subject: `Your Marketing Audit for ${business}`,
       text: aiOutput
     });
 
     res.json({
-      status: "Lead captured + audit sent",
+      status: "Lead + Intelligence + Email complete",
       leadId: lead._id
     });
 
@@ -180,7 +219,7 @@ app.post("/send-email", authMiddleware, async (req, res) => {
   try {
     const saved = await Output.create({
       content: message,
-      agent: agent || "general",
+      agent,
       userId: req.user.id
     });
 
@@ -191,10 +230,7 @@ app.post("/send-email", authMiddleware, async (req, res) => {
       text: message
     });
 
-    res.json({
-      status: "Saved + Email sent",
-      id: saved._id
-    });
+    res.json({ status: "Saved + sent", id: saved._id });
 
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -210,9 +246,9 @@ app.get("/history", authMiddleware, async (req, res) => {
   res.json(data);
 });
 
-// ===== START SERVER (FIXED FOR RENDER) =====
+// ===== SERVER =====
 const PORT = process.env.PORT || 3001;
 
 app.listen(PORT, () => {
-  console.log(`🚀 CraftNova backend running on port ${PORT}`);
+  console.log(`🚀 CraftNova running on port ${PORT}`);
 });
