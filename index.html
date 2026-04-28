@@ -1,9 +1,10 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CraftNova – AI Operating System</title>
+  <title>CraftNova AI Platform</title>
 
   <script src="https://cdn.tailwindcss.com"></script>
 
@@ -23,193 +24,193 @@
     }
   </script>
 
-  <script>
-
-    let history = JSON.parse(localStorage.getItem("craftnova_history")) || [
-      { role: "system", content: "You are CraftNova, an AI Operating System." }
-    ];
-
-    function detectAgent(input) {
-      const text = input.toLowerCase();
-      if (text.includes("marketing") || text.includes("content")) return "content";
-      if (text.includes("data") || text.includes("report")) return "data";
-      if (text.includes("automation") || text.includes("workflow")) return "automation";
-      return "general";
-    }
-
-    function generateContent(input) {
-      return `Generated Marketing Content:\n\n- Hook\n- Body\n- CTA\n\nTopic: ${input}`;
-    }
-
-    function analyzeData(input) {
-      return `Data Analysis:\n\nInsights...\n\nInput: ${input}`;
-    }
-
-    function createWorkflow(input) {
-      return `Automation Workflow:\n\nSteps...\n\nTask: ${input}`;
-    }
-
-    function executeAgent(agent, input) {
-      if (agent === "content") return generateContent(input);
-      if (agent === "data") return analyzeData(input);
-      if (agent === "automation") return createWorkflow(input);
-      return null;
-    }
-
-    function downloadFile(content) {
-      const blob = new Blob([content], { type: "text/plain" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "craftnova_output.txt";
-      a.click();
-      URL.revokeObjectURL(url);
-    }
-
-    async function sendToAPI(content, agent) {
-      try {
-        const res = await fetch("http://localhost:3001/send-email", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: content, agent })
-        });
-        const data = await res.json();
-        return data.status;
-      } catch (err) {
-        return "API Error";
-      }
-    }
-
-    async function loadHistory() {
-      const panel = document.getElementById("historyPanel");
-      if (!panel) return;
-
-      try {
-        const res = await fetch("http://localhost:3001/history");
-        const data = await res.json();
-
-        if (!data.length) {
-          panel.innerHTML = `<p>No history yet</p>`;
-          return;
-        }
-
-        panel.innerHTML = "";
-
-        data.forEach(item => {
-          panel.innerHTML += `
-            <div>
-              <p>[${item.agent}]</p>
-              <p>${item.content}</p>
-            </div>
-          `;
-        });
-
-      } catch {
-        panel.innerHTML = `<p>Failed to load</p>`;
-      }
-    }
-
-    async function runAI() {
-      const input = document.getElementById("prompt");
-      const output = document.getElementById("output");
-
-      const text = input.value.trim();
-      if (!text) return;
-
-      const agent = detectAgent(text);
-
-      output.innerHTML += `<p>> ${text}</p>`;
-
-      const result = executeAgent(agent, text);
-
-      if (result) {
-        output.innerHTML += `<p>${result}</p>`;
-        await sendToAPI(result, agent);
-        loadHistory();
-      }
-
-      input.value = "";
-    }
-
-    function clearMemory() {
-      localStorage.removeItem("craftnova_history");
-      location.reload();
-    }
-
-    // ===== NEW LEAD FUNCTION =====
-    async function submitLead() {
-      const name = document.getElementById("leadName").value;
-      const email = document.getElementById("leadEmail").value;
-      const business = document.getElementById("leadBusiness").value;
-
-      if (!name || !email || !business) {
-        alert("Fill all fields");
-        return;
-      }
-
-      try {
-        const res = await fetch("http://localhost:3001/lead", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name,
-            email,
-            business,
-            message: "Free audit request"
-          })
-        });
-
-        const data = await res.json();
-        alert("Audit sent! Check your email.");
-        console.log(data);
-
-      } catch (err) {
-        alert("Error submitting lead");
-      }
-    }
-
-    window.onload = loadHistory;
-
-  </script>
 </head>
 
 <body class="bg-bg text-white">
 
-<div class="flex">
+<div class="flex min-h-screen">
 
-  <aside class="w-64 p-4">
-    <h1>CraftNova</h1>
+  <!-- SIDEBAR -->
+
+  <aside class="w-64 bg-card border-r border-border p-4">
+    <h1 class="text-xl font-bold mb-6">🚀 CraftNova</h1>
+
+```
+<nav class="space-y-2 text-sm">
+  <p class="text-gray-400">SYSTEM</p>
+  <p class="hover:text-primary cursor-pointer">Dashboard</p>
+  <p class="hover:text-primary cursor-pointer">AI Agents</p>
+  <p class="hover:text-primary cursor-pointer">Leads</p>
+  <p class="hover:text-primary cursor-pointer">Analytics</p>
+</nav>
+```
+
   </aside>
 
-  <main class="flex-1 p-6">
+  <!-- MAIN -->
 
-    <!-- 🔥 NEW LEAD FORM -->
-    <div class="bg-card p-4 mb-6">
-      <h2>Free Marketing Audit</h2>
+  <main class="flex-1 p-6 space-y-6">
 
-      <input id="leadName" placeholder="Name"><br>
-      <input id="leadEmail" placeholder="Email"><br>
-      <input id="leadBusiness" placeholder="Business"><br><br>
+```
+<!-- LEAD CAPTURE -->
+<div class="bg-card p-6 rounded-xl border border-border">
+  <h2 class="text-lg font-semibold mb-4">Free Marketing Audit</h2>
 
-      <button onclick="submitLead()">Get Free Audit</button>
-    </div>
+  <div class="grid gap-3">
+    <input id="leadName" class="p-2 bg-black border border-border rounded" placeholder="Name">
+    <input id="leadEmail" class="p-2 bg-black border border-border rounded" placeholder="Email">
+    <input id="leadBusiness" class="p-2 bg-black border border-border rounded" placeholder="Business">
+    
+    <button onclick="submitLead()" class="bg-primary px-4 py-2 rounded hover:opacity-90">
+      Get Free Audit
+    </button>
 
-    <!-- AI PANEL -->
-    <div>
-      <div id="output"></div>
+    <p id="leadStatus" class="text-sm text-gray-400"></p>
+  </div>
+</div>
 
-      <input id="prompt" placeholder="Ask...">
-      <button onclick="runAI()">Run</button>
+<!-- AI PANEL -->
+<div class="bg-card p-6 rounded-xl border border-border">
+  <h2 class="text-lg font-semibold mb-4">AI Command Center</h2>
 
-      <button onclick="clearMemory()">Clear</button>
-    </div>
+  <div id="output" class="bg-black p-4 h-64 overflow-y-auto rounded mb-4 text-sm"></div>
 
-    <!-- HISTORY -->
-    <div id="historyPanel"></div>
+  <div class="flex gap-2">
+    <input id="prompt" class="flex-1 p-2 bg-black border border-border rounded" placeholder="Ask CraftNova...">
+    <button onclick="runAI()" class="bg-secondary px-4 py-2 rounded">Run</button>
+    <button onclick="clearMemory()" class="bg-gray-700 px-4 py-2 rounded">Clear</button>
+  </div>
+</div>
+
+<!-- HISTORY -->
+<div class="bg-card p-6 rounded-xl border border-border">
+  <h2 class="text-lg font-semibold mb-4">Recent Outputs</h2>
+  <div id="historyPanel" class="text-sm text-gray-300 space-y-3"></div>
+</div>
+```
 
   </main>
 
 </div>
+
+<script>
+
+const API_BASE = "https://craftnova-backend.onrender.com";
+
+// ===== AGENT LOGIC =====
+function detectAgent(input) {
+  const text = input.toLowerCase();
+  if (text.includes("marketing") || text.includes("content")) return "content";
+  if (text.includes("data")) return "data";
+  if (text.includes("automation")) return "automation";
+  return "general";
+}
+
+function generateContent(input) {
+  return `Marketing Content:\n\n- Hook\n- Body\n- CTA\n\nTopic: ${input}`;
+}
+
+function analyzeData(input) {
+  return `Data Analysis:\n\nInsights for: ${input}`;
+}
+
+function createWorkflow(input) {
+  return `Workflow:\n\nSteps for: ${input}`;
+}
+
+function executeAgent(agent, input) {
+  if (agent === "content") return generateContent(input);
+  if (agent === "data") return analyzeData(input);
+  if (agent === "automation") return createWorkflow(input);
+  return "General response generated.";
+}
+
+// ===== AI RUN =====
+async function runAI() {
+  const input = document.getElementById("prompt");
+  const output = document.getElementById("output");
+
+  const text = input.value.trim();
+  if (!text) return;
+
+  const agent = detectAgent(text);
+
+  output.innerHTML += `<p class="text-blue-400">> ${text}</p>`;
+
+  const result = executeAgent(agent, text);
+
+  output.innerHTML += `<p class="text-gray-300">${result}</p>`;
+
+  await sendToAPI(result, agent);
+  input.value = "";
+}
+
+// ===== SEND TO BACKEND =====
+async function sendToAPI(content, agent) {
+  try {
+    await fetch(`${API_BASE}/send-email`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: content, agent })
+    });
+  } catch (err) {
+    console.error("API error:", err);
+  }
+}
+
+// ===== LEAD =====
+async function submitLead() {
+  const status = document.getElementById("leadStatus");
+  status.innerText = "Sending...";
+
+  const name = document.getElementById("leadName").value;
+  const email = document.getElementById("leadEmail").value;
+  const business = document.getElementById("leadBusiness").value;
+
+  try {
+    const res = await fetch(`${API_BASE}/lead`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, email, business })
+    });
+
+    const data = await res.json();
+
+    status.innerText = "✅ Audit sent successfully!";
+    console.log(data);
+
+  } catch (err) {
+    status.innerText = "❌ Error sending request";
+  }
+}
+
+// ===== HISTORY =====
+async function loadHistory() {
+  const panel = document.getElementById("historyPanel");
+
+  try {
+    const res = await fetch(`${API_BASE}/history`);
+    const data = await res.json();
+
+    panel.innerHTML = data.map(item => `
+      <div class="border-b border-border pb-2">
+        <p class="text-primary text-xs">[${item.agent}]</p>
+        <p>${item.content}</p>
+      </div>
+    `).join("");
+
+  } catch {
+    panel.innerHTML = "Login required to view history";
+  }
+}
+
+function clearMemory() {
+  document.getElementById("output").innerHTML = "";
+}
+
+window.onload = loadHistory;
+
+</script>
 
 </body>
 </html>

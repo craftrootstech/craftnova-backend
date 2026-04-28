@@ -7,6 +7,7 @@ const { Resend } = require("resend");
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const OpenAI = require("openai");
 
 const app = express();
 
@@ -17,6 +18,10 @@ app.use(bodyParser.json());
 // ===== ENV =====
 const JWT_SECRET = process.env.JWT_SECRET;
 const resend = new Resend(process.env.RESEND_API_KEY);
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
 
 // ===== HEALTH CHECK =====
 app.get("/", (req, res) => {
@@ -46,6 +51,7 @@ const UserSchema = new mongoose.Schema({
 const OutputSchema = new mongoose.Schema({
   content: String,
   agent: String,
+  score: String,
   userId: String,
   createdAt: { type: Date, default: Date.now }
 });
@@ -71,7 +77,6 @@ const Lead = mongoose.model("Lead", LeadSchema);
 // ===== AUTH =====
 function authMiddleware(req, res, next) {
   const token = req.headers.authorization;
-
   if (!token) return res.status(401).json({ error: "No token" });
 
   try {
@@ -90,7 +95,6 @@ app.post("/register", async (req, res) => {
   try {
     const hashed = await bcrypt.hash(password, 10);
     await User.create({ email, password: hashed });
-
     res.json({ status: "User created" });
   } catch {
     res.status(400).json({ error: "User exists" });
@@ -119,7 +123,7 @@ app.post("/login", async (req, res) => {
   }
 });
 
-// ===== 🚀 LEAD + INTELLIGENCE + OUTREACH =====
+// ===== 🚀 LEAD + GPT INTELLIGENCE + OUTREACH =====
 app.post("/lead", async (req, res) => {
   const {
     name,
@@ -134,7 +138,7 @@ app.post("/lead", async (req, res) => {
   } = req.body;
 
   try {
-    // ===== SAVE LEAD =====
+    // SAVE LEAD
     const lead = await Lead.create({
       name,
       email,
@@ -147,63 +151,96 @@ app.post("/lead", async (req, res) => {
       message
     });
 
-    // ===== 🧠 INTELLIGENCE AGENT =====
-    const platformInsights = `
-Platform Presence:
-- Facebook: ${facebook ? "Provided ✅" : "Missing ❌"}
-- Instagram: ${instagram ? "Provided ✅" : "Missing ❌"}
-- LinkedIn: ${linkedin ? "Provided ✅" : "Missing ❌"}
+    // ===== GPT PROMPT =====
+    const prompt = `
+You are an elite digital marketing consultant.
+
+Analyze the business and return a structured audit in this EXACT format:
+
+OVERALL SCORE: (number from 0-100)
+
+SUMMARY:
+(2-3 sentences)
+
+PLATFORM ANALYSIS:
+Instagram:
+Facebook:
+LinkedIn:
+
+KEY PROBLEMS:
+- point
+- point
+
+STRATEGY:
+- point
+- point
+
+ACTION PLAN:
+1. step
+2. step
+
+Business: ${business}
+Industry: ${industry || "Not specified"}
+Goal: ${goal || "Not specified"}
+
+Platforms:
+Instagram: ${instagram || "None"}
+Facebook: ${facebook || "None"}
+LinkedIn: ${linkedin || "None"}
 `;
 
-    const strategy = `
-Recommended Strategy:
-1. ${instagram ? "Leverage Instagram Reels" : "Create Instagram presence"}
-2. Optimize messaging for ${industry || "your industry"}
-3. Focus on ${goal || "lead generation"}
-4. Improve CTAs and funnel structure
-`;
+    const aiResponse = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: "You are a world-class marketing strategist." },
+        { role: "user", content: prompt }
+      ],
+      temperature: 0.7
+    });
 
-    const aiOutput = `
-Hi ${name},
+    const raw = aiResponse.choices[0].message.content;
 
-Your AI Marketing Audit for:
-
-🏢 ${business}
-🏭 ${industry || "General Industry"}
-
-${platformInsights}
-
-🚨 Key Issues:
-- Inconsistent content reduces reach
-- Weak CTAs reduce conversions
-- Poor funnel structure limits growth
-
-🚀 ${strategy}
-
-📈 Growth Potential:
-With proper execution, ${business} can increase conversions within 30–60 days.
-
-— CraftNova Intelligence System
-`;
+    // ===== SCORE EXTRACTION =====
+    const scoreMatch = raw.match(/OVERALL SCORE:\s*(\d{1,3})/i);
+    const score = scoreMatch ? scoreMatch[1] : "N/A";
 
     // ===== SAVE OUTPUT =====
     await Output.create({
-      content: aiOutput,
+      content: raw,
       agent: "intelligence",
+      score: score,
       userId: null
     });
 
-    // ===== 📧 SEND EMAIL =====
+    // ===== EMAIL =====
+    const aiOutput = `
+Hi ${name},
+
+Here is your AI Marketing Audit for ${business}:
+
+${raw}
+
+📊 Your Marketing Score: ${score}/100
+
+⚠️ Businesses below 60% typically lose over 70% of potential leads.
+
+👉 Want us to implement this for you?
+Reply to this email or book a strategy call.
+
+— CraftNova AI System
+`;
+
     await resend.emails.send({
       from: "noreply@craftrootstech.com",
       to: email,
-      subject: `Your Marketing Audit for ${business}`,
+      subject: `Your AI Marketing Audit for ${business}`,
       text: aiOutput
     });
 
     res.json({
-      status: "Lead + Intelligence + Email complete",
-      leadId: lead._id
+      status: "Lead + GPT Intelligence + Email complete",
+      leadId: lead._id,
+      score
     });
 
   } catch (err) {
