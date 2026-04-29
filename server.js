@@ -11,21 +11,14 @@ const OpenAI = require("openai");
 
 const app = express();
 
-// ===== MIDDLEWARE =====
 app.use(cors());
 app.use(bodyParser.json());
 
 // ===== ENV =====
-const JWT_SECRET = process.env.JWT_SECRET;
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
-});
-
-// ===== HEALTH CHECK =====
-app.get("/", (req, res) => {
-  res.send("CraftNova Backend is Running 🚀");
 });
 
 // ===== DATABASE =====
@@ -35,21 +28,7 @@ mongoose.connection.once("open", () => {
   console.log("✅ Connected to MongoDB");
 });
 
-// ===== SCHEMAS =====
-const User = mongoose.model("User", {
-  email: { type: String, unique: true },
-  password: String,
-  createdAt: { type: Date, default: Date.now }
-});
-
-const Output = mongoose.model("Output", {
-  content: String,
-  agent: String,
-  score: String,
-  userId: String,
-  createdAt: { type: Date, default: Date.now }
-});
-
+// ===== MODELS =====
 const Lead = mongoose.model("Lead", {
   name: String,
   email: String,
@@ -59,95 +38,128 @@ const Lead = mongoose.model("Lead", {
   instagram: String,
   linkedin: String,
   goal: String,
-  message: String,
   createdAt: { type: Date, default: Date.now }
 });
 
-// ===== FOLLOW-UP SYSTEM =====
-function scheduleFollowUps(lead) {
-  const { name, email, business } = lead;
+const Output = mongoose.model("Output", {
+  content: String,
+  score: String,
+  createdAt: { type: Date, default: Date.now }
+});
 
-  // ⚠️ For testing → use seconds instead of days
-  const DAY = 1000 * 10; // 10 sec (change to 24*60*60*1000 in production)
+// ===== JOB QUEUE =====
+const Job = mongoose.model("Job", {
+  type: String,
+  payload: Object,
+  runAt: Date,
+  status: { type: String, default: "pending" },
+  attempts: { type: Number, default: 0 },
+  lastError: String,
+  createdAt: { type: Date, default: Date.now }
+});
 
-  // Day 1
-  setTimeout(async () => {
-    await resend.emails.send({
-      from: "noreply@craftrootstech.com",
-      to: email,
-      subject: `Quick follow-up on your audit`,
-      text: `Hi ${name},
+// ===== ENQUEUE FOLLOW-UPS =====
+function enqueueFollowUps(lead) {
+  const now = Date.now();
 
-Did you get a chance to review your audit for ${business}?
+  const jobs = [
+    { step: 1, delay: 10000 }, // 10 sec (testing)
+    { step: 2, delay: 20000 },
+    { step: 3, delay: 30000 }
+  ];
 
-Most businesses we analyze are missing key opportunities that increase leads significantly.
-
-— CraftNova AI  
-by Craftroots Technologies`
+  jobs.forEach(j => {
+    Job.create({
+      type: "followup",
+      payload: {
+        name: lead.name,
+        email: lead.email,
+        business: lead.business,
+        step: j.step
+      },
+      runAt: new Date(now + j.delay)
     });
-  }, DAY);
-
-  // Day 3
-  setTimeout(async () => {
-    await resend.emails.send({
-      from: "noreply@craftrootstech.com",
-      to: email,
-      subject: `How businesses like ${business} grow faster`,
-      text: `Hi ${name},
-
-Businesses similar to ${business} typically increase engagement 2–3x after improving messaging and consistency.
-
-We can help implement this for you.
-
-— CraftNova AI  
-by Craftroots Technologies`
-    });
-  }, DAY * 2);
-
-  // Day 5
-  setTimeout(async () => {
-    await resend.emails.send({
-      from: "noreply@craftrootstech.com",
-      to: email,
-      subject: `Let’s improve your marketing results`,
-      text: `Hi ${name},
-
-If you're serious about improving results, we can implement your full strategy.
-
-Reply to this email or request a strategy session.
-
-— CraftNova AI  
-by Craftroots Technologies`
-    });
-  }, DAY * 3);
+  });
 }
 
-// ===== AUTH =====
-function authMiddleware(req, res, next) {
-  const token = req.headers.authorization;
-  if (!token) return res.status(401).json({ error: "No token" });
+// ===== WORKER =====
+async function processJobs() {
+  const jobs = await Job.find({
+    status: "pending",
+    runAt: { $lte: new Date() }
+  }).limit(5);
 
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = decoded;
-    next();
-  } catch {
-    res.status(401).json({ error: "Invalid token" });
+  for (const job of jobs) {
+    try {
+      job.status = "processing";
+      await job.save();
+
+      const { name, email, business, step } = job.payload;
+
+      let subject = "";
+      let text = "";
+
+      if (step === 1) {
+        subject = "Quick follow-up on your audit";
+        text = `Hi ${name},
+
+Did you review your audit for ${business}?
+
+Most businesses miss key growth opportunities.
+
+— CraftNova AI  
+by Craftroots Technologies`;
+      }
+
+      if (step === 2) {
+        subject = `How businesses like ${business} grow faster`;
+        text = `Hi ${name},
+
+Businesses like yours typically increase engagement 2–3x after improving messaging.
+
+We can help implement this.
+
+— CraftNova AI  
+by Craftroots Technologies`;
+      }
+
+      if (step === 3) {
+        subject = "Let’s improve your marketing results";
+        text = `Hi ${name},
+
+We can implement your strategy and drive results.
+
+Reply to get started.
+
+— CraftNova AI  
+by Craftroots Technologies`;
+      }
+
+      await resend.emails.send({
+        from: "noreply@craftrootstech.com",
+        to: email,
+        subject,
+        text
+      });
+
+      job.status = "done";
+      await job.save();
+
+    } catch (err) {
+      job.status = "failed";
+      job.attempts += 1;
+      job.lastError = err.message;
+      await job.save();
+    }
   }
 }
 
-// ===== LEAD + GPT =====
+// Run worker every 10 sec
+setInterval(processJobs, 10000);
+
+// ===== LEAD ROUTE =====
 app.post("/lead", async (req, res) => {
-  const {
-    name,
-    email,
-    business,
-    industry,
-    facebook,
-    instagram,
-    linkedin,
-    goal
-  } = req.body;
+  const { name, email, business, industry, facebook, instagram, linkedin, goal } = req.body;
 
   try {
     const lead = await Lead.create({
@@ -161,13 +173,10 @@ app.post("/lead", async (req, res) => {
       goal
     });
 
-    // ===== GPT =====
     const prompt = `
-You are an elite digital marketing consultant.
+Return EXACT format:
 
-Return STRICTLY this format:
-
-OVERALL SCORE: number (0-100)
+OVERALL SCORE: number
 
 SUMMARY:
 ...
@@ -179,31 +188,21 @@ LinkedIn:
 
 KEY PROBLEMS:
 - ...
-- ...
 
 STRATEGY:
-- ...
 - ...
 
 ACTION PLAN:
 1. ...
-2. ...
 
 Business: ${business}
 Industry: ${industry || "Not specified"}
 Goal: ${goal || "Not specified"}
-
-Instagram: ${instagram || "None"}
-Facebook: ${facebook || "None"}
-LinkedIn: ${linkedin || "None"}
 `;
 
     const ai = await openai.chat.completions.create({
       model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: "You are a world-class marketing strategist." },
-        { role: "user", content: prompt }
-      ]
+      messages: [{ role: "user", content: prompt }]
     });
 
     const raw = ai.choices[0].message.content;
@@ -211,39 +210,26 @@ LinkedIn: ${linkedin || "None"}
     const scoreMatch = raw.match(/OVERALL SCORE:\s*(\d{1,3})/i);
     const score = scoreMatch ? scoreMatch[1] : "N/A";
 
-    await Output.create({
-      content: raw,
-      agent: "intelligence",
-      score,
-      userId: null
-    });
+    await Output.create({ content: raw, score });
 
-    // ===== EMAIL =====
     await resend.emails.send({
       from: "noreply@craftrootstech.com",
       to: email,
-      subject: `Your AI Marketing Audit for ${business}`,
+      subject: `Your AI Marketing Audit`,
       text: `Hi ${name},
-
-Here is your AI Marketing Audit:
 
 ${raw}
 
-📊 Your Marketing Score: ${score}/100
-
-⚠️ Businesses below 60% lose up to 70% of potential customers.
-
-👉 Want us to implement this for you?
-Reply to this email.
+📊 Score: ${score}/100
 
 — CraftNova AI  
 by Craftroots Technologies`
     });
 
-    // 🔥 TRIGGER FOLLOW-UP SYSTEM
-    scheduleFollowUps(lead);
+    // 🔥 persistent follow-ups
+    enqueueFollowUps(lead);
 
-    res.json({ status: "Success", score });
+    res.json({ success: true, score });
 
   } catch (err) {
     console.error(err);
@@ -255,5 +241,5 @@ by Craftroots Technologies`
 const PORT = process.env.PORT || 3001;
 
 app.listen(PORT, () => {
-  console.log(`🚀 CraftNova running on port ${PORT}`);
+  console.log("🚀 CraftNova running on port " + PORT);
 });
