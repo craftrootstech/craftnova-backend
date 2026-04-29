@@ -5,12 +5,9 @@ const cors = require("cors");
 const bodyParser = require("body-parser");
 const { Resend } = require("resend");
 const mongoose = require("mongoose");
-const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
 const OpenAI = require("openai");
 
 const app = express();
-
 app.use(cors());
 app.use(bodyParser.json());
 
@@ -19,6 +16,11 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
+});
+
+// ===== HEALTH CHECK =====
+app.get("/", (req, res) => {
+  res.send("CraftNova Backend Live 🚀");
 });
 
 // ===== DATABASE =====
@@ -47,7 +49,6 @@ const Output = mongoose.model("Output", {
   createdAt: { type: Date, default: Date.now }
 });
 
-// ===== JOB QUEUE =====
 const Job = mongoose.model("Job", {
   type: String,
   payload: Object,
@@ -63,9 +64,9 @@ function enqueueFollowUps(lead) {
   const now = Date.now();
 
   const jobs = [
-    { step: 1, delay: 10000 }, // 10 sec (testing)
-    { step: 2, delay: 20000 },
-    { step: 3, delay: 30000 }
+    { step: 1, delay: 24 * 60 * 60 * 1000 }, // Day 1
+    { step: 2, delay: 3 * 24 * 60 * 60 * 1000 }, // Day 3
+    { step: 3, delay: 5 * 24 * 60 * 60 * 1000 }  // Day 5
   ];
 
   jobs.forEach(j => {
@@ -84,73 +85,86 @@ function enqueueFollowUps(lead) {
 
 // ===== WORKER =====
 async function processJobs() {
-  const jobs = await Job.find({
-    status: "pending",
-    runAt: { $lte: new Date() }
-  }).limit(5);
+  try {
+    const jobs = await Job.find({
+      status: "pending",
+      runAt: { $lte: new Date() }
+    }).limit(5);
 
-  for (const job of jobs) {
-    try {
-      job.status = "processing";
-      await job.save();
+    for (const job of jobs) {
+      try {
+        // LOCK JOB
+        job.status = "processing";
+        await job.save();
 
-      const { name, email, business, step } = job.payload;
+        const { name, email, business, step } = job.payload;
 
-      let subject = "";
-      let text = "";
+        let subject = "";
+        let text = "";
 
-      if (step === 1) {
-        subject = "Quick follow-up on your audit";
-        text = `Hi ${name},
+        if (step === 1) {
+          subject = "Quick follow-up on your audit";
+          text = `Hi ${name},
 
-Did you review your audit for ${business}?
+Did you get a chance to review your audit for ${business}?
 
-Most businesses miss key growth opportunities.
-
-— CraftNova AI  
-by Craftroots Technologies`;
-      }
-
-      if (step === 2) {
-        subject = `How businesses like ${business} grow faster`;
-        text = `Hi ${name},
-
-Businesses like yours typically increase engagement 2–3x after improving messaging.
-
-We can help implement this.
+Most businesses we analyze are missing key opportunities that significantly increase leads.
 
 — CraftNova AI  
 by Craftroots Technologies`;
-      }
+        }
 
-      if (step === 3) {
-        subject = "Let’s improve your marketing results";
-        text = `Hi ${name},
+        if (step === 2) {
+          subject = `How businesses like ${business} grow faster`;
+          text = `Hi ${name},
 
-We can implement your strategy and drive results.
+Businesses similar to ${business} typically increase engagement by 2–3x after improving their content and positioning.
 
-Reply to get started.
+We can help you implement this.
 
 — CraftNova AI  
 by Craftroots Technologies`;
+        }
+
+        if (step === 3) {
+          subject = "Let’s improve your marketing results";
+          text = `Hi ${name},
+
+If you're serious about improving results, we can implement your full strategy.
+
+Reply to this email to get started.
+
+— CraftNova AI  
+by Craftroots Technologies`;
+        }
+
+        await resend.emails.send({
+          from: "noreply@craftrootstech.com",
+          to: email,
+          subject,
+          text
+        });
+
+        job.status = "done";
+        await job.save();
+
+      } catch (err) {
+        job.attempts += 1;
+        job.lastError = err.message;
+
+        // RETRY up to 3 times
+        if (job.attempts < 3) {
+          job.status = "pending";
+          job.runAt = new Date(Date.now() + 60000); // retry in 1 min
+        } else {
+          job.status = "failed";
+        }
+
+        await job.save();
       }
-
-      await resend.emails.send({
-        from: "noreply@craftrootstech.com",
-        to: email,
-        subject,
-        text
-      });
-
-      job.status = "done";
-      await job.save();
-
-    } catch (err) {
-      job.status = "failed";
-      job.attempts += 1;
-      job.lastError = err.message;
-      await job.save();
     }
+  } catch (err) {
+    console.error("Worker error:", err.message);
   }
 }
 
@@ -174,12 +188,14 @@ app.post("/lead", async (req, res) => {
     });
 
     const prompt = `
+You are an elite digital marketing consultant.
+
 Return EXACT format:
 
-OVERALL SCORE: number
+OVERALL SCORE: (0-100)
 
 SUMMARY:
-...
+(2-3 sentences)
 
 PLATFORM ANALYSIS:
 Instagram:
@@ -187,13 +203,16 @@ Facebook:
 LinkedIn:
 
 KEY PROBLEMS:
-- ...
+- point
+- point
 
 STRATEGY:
-- ...
+- point
+- point
 
 ACTION PLAN:
-1. ...
+1. step
+2. step
 
 Business: ${business}
 Industry: ${industry || "Not specified"}
@@ -202,7 +221,11 @@ Goal: ${goal || "Not specified"}
 
     const ai = await openai.chat.completions.create({
       model: "gpt-4o-mini",
-      messages: [{ role: "user", content: prompt }]
+      messages: [
+        { role: "system", content: "You are a world-class marketing strategist." },
+        { role: "user", content: prompt }
+      ],
+      temperature: 0.7
     });
 
     const raw = ai.choices[0].message.content;
@@ -215,18 +238,24 @@ Goal: ${goal || "Not specified"}
     await resend.emails.send({
       from: "noreply@craftrootstech.com",
       to: email,
-      subject: `Your AI Marketing Audit`,
+      subject: `Your AI Marketing Audit for ${business}`,
       text: `Hi ${name},
+
+Here is your AI Marketing Audit:
 
 ${raw}
 
-📊 Score: ${score}/100
+📊 Your Marketing Score: ${score}/100
+
+⚠️ Businesses below 60% lose up to 70% of potential customers.
+
+👉 Want us to implement this for you?
+Reply to this email.
 
 — CraftNova AI  
 by Craftroots Technologies`
     });
 
-    // 🔥 persistent follow-ups
     enqueueFollowUps(lead);
 
     res.json({ success: true, score });
