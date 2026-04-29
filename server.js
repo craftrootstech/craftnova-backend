@@ -31,24 +31,18 @@ app.get("/", (req, res) => {
 // ===== DATABASE =====
 mongoose.connect(process.env.MONGO_URI);
 
-const db = mongoose.connection;
-
-db.on("error", (err) => {
-  console.error("MongoDB error:", err.message);
-});
-
-db.once("open", () => {
+mongoose.connection.once("open", () => {
   console.log("✅ Connected to MongoDB");
 });
 
 // ===== SCHEMAS =====
-const UserSchema = new mongoose.Schema({
+const User = mongoose.model("User", {
   email: { type: String, unique: true },
   password: String,
   createdAt: { type: Date, default: Date.now }
 });
 
-const OutputSchema = new mongoose.Schema({
+const Output = mongoose.model("Output", {
   content: String,
   agent: String,
   score: String,
@@ -56,7 +50,7 @@ const OutputSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-const LeadSchema = new mongoose.Schema({
+const Lead = mongoose.model("Lead", {
   name: String,
   email: String,
   business: String,
@@ -69,10 +63,64 @@ const LeadSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-// ===== MODELS =====
-const User = mongoose.model("User", UserSchema);
-const Output = mongoose.model("Output", OutputSchema);
-const Lead = mongoose.model("Lead", LeadSchema);
+// ===== FOLLOW-UP SYSTEM =====
+function scheduleFollowUps(lead) {
+  const { name, email, business } = lead;
+
+  // ⚠️ For testing → use seconds instead of days
+  const DAY = 1000 * 10; // 10 sec (change to 24*60*60*1000 in production)
+
+  // Day 1
+  setTimeout(async () => {
+    await resend.emails.send({
+      from: "noreply@craftrootstech.com",
+      to: email,
+      subject: `Quick follow-up on your audit`,
+      text: `Hi ${name},
+
+Did you get a chance to review your audit for ${business}?
+
+Most businesses we analyze are missing key opportunities that increase leads significantly.
+
+— CraftNova AI  
+by Craftroots Technologies`
+    });
+  }, DAY);
+
+  // Day 3
+  setTimeout(async () => {
+    await resend.emails.send({
+      from: "noreply@craftrootstech.com",
+      to: email,
+      subject: `How businesses like ${business} grow faster`,
+      text: `Hi ${name},
+
+Businesses similar to ${business} typically increase engagement 2–3x after improving messaging and consistency.
+
+We can help implement this for you.
+
+— CraftNova AI  
+by Craftroots Technologies`
+    });
+  }, DAY * 2);
+
+  // Day 5
+  setTimeout(async () => {
+    await resend.emails.send({
+      from: "noreply@craftrootstech.com",
+      to: email,
+      subject: `Let’s improve your marketing results`,
+      text: `Hi ${name},
+
+If you're serious about improving results, we can implement your full strategy.
+
+Reply to this email or request a strategy session.
+
+— CraftNova AI  
+by Craftroots Technologies`
+    });
+  }, DAY * 3);
+}
 
 // ===== AUTH =====
 function authMiddleware(req, res, next) {
@@ -88,42 +136,7 @@ function authMiddleware(req, res, next) {
   }
 }
 
-// ===== REGISTER =====
-app.post("/register", async (req, res) => {
-  const { email, password } = req.body;
-
-  try {
-    const hashed = await bcrypt.hash(password, 10);
-    await User.create({ email, password: hashed });
-    res.json({ status: "User created" });
-  } catch {
-    res.status(400).json({ error: "User exists" });
-  }
-});
-
-// ===== LOGIN =====
-app.post("/login", async (req, res) => {
-  const { email, password } = req.body;
-
-  try {
-    const user = await User.findOne({ email });
-    if (!user) return res.status(400).json({ error: "User not found" });
-
-    const valid = await bcrypt.compare(password, user.password);
-    if (!valid) return res.status(400).json({ error: "Wrong password" });
-
-    const token = jwt.sign(
-      { id: user._id, email: user.email },
-      JWT_SECRET
-    );
-
-    res.json({ token });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ===== 🚀 LEAD + GPT INTELLIGENCE + OUTREACH =====
+// ===== LEAD + GPT =====
 app.post("/lead", async (req, res) => {
   const {
     name,
@@ -133,12 +146,10 @@ app.post("/lead", async (req, res) => {
     facebook,
     instagram,
     linkedin,
-    goal,
-    message
+    goal
   } = req.body;
 
   try {
-    // SAVE LEAD
     const lead = await Lead.create({
       name,
       email,
@@ -147,20 +158,19 @@ app.post("/lead", async (req, res) => {
       facebook,
       instagram,
       linkedin,
-      goal,
-      message
+      goal
     });
 
-    // ===== GPT PROMPT =====
+    // ===== GPT =====
     const prompt = `
 You are an elite digital marketing consultant.
 
-Analyze the business and return a structured audit in this EXACT format:
+Return STRICTLY this format:
 
-OVERALL SCORE: (number from 0-100)
+OVERALL SCORE: number (0-100)
 
 SUMMARY:
-(2-3 sentences)
+...
 
 PLATFORM ANALYSIS:
 Instagram:
@@ -168,119 +178,77 @@ Facebook:
 LinkedIn:
 
 KEY PROBLEMS:
-- point
-- point
+- ...
+- ...
 
 STRATEGY:
-- point
-- point
+- ...
+- ...
 
 ACTION PLAN:
-1. step
-2. step
+1. ...
+2. ...
 
 Business: ${business}
 Industry: ${industry || "Not specified"}
 Goal: ${goal || "Not specified"}
 
-Platforms:
 Instagram: ${instagram || "None"}
 Facebook: ${facebook || "None"}
 LinkedIn: ${linkedin || "None"}
 `;
 
-    const aiResponse = await openai.chat.completions.create({
+    const ai = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         { role: "system", content: "You are a world-class marketing strategist." },
         { role: "user", content: prompt }
-      ],
-      temperature: 0.7
+      ]
     });
 
-    const raw = aiResponse.choices[0].message.content;
+    const raw = ai.choices[0].message.content;
 
-    // ===== SCORE EXTRACTION =====
     const scoreMatch = raw.match(/OVERALL SCORE:\s*(\d{1,3})/i);
     const score = scoreMatch ? scoreMatch[1] : "N/A";
 
-    // ===== SAVE OUTPUT =====
     await Output.create({
       content: raw,
       agent: "intelligence",
-      score: score,
+      score,
       userId: null
     });
 
     // ===== EMAIL =====
-    const aiOutput = `
-Hi ${name},
+    await resend.emails.send({
+      from: "noreply@craftrootstech.com",
+      to: email,
+      subject: `Your AI Marketing Audit for ${business}`,
+      text: `Hi ${name},
 
-Here is your AI Marketing Audit for ${business}:
+Here is your AI Marketing Audit:
 
 ${raw}
 
 📊 Your Marketing Score: ${score}/100
 
-⚠️ Businesses below 60% typically lose over 70% of potential leads.
+⚠️ Businesses below 60% lose up to 70% of potential customers.
 
 👉 Want us to implement this for you?
-Reply to this email or book a strategy call.
+Reply to this email.
 
-— CraftNova AI System
-`;
-
-    await resend.emails.send({
-      from: "noreply@craftrootstech.com",
-      to: email,
-      subject: `Your AI Marketing Audit for ${business}`,
-      text: aiOutput
+— CraftNova AI  
+by Craftroots Technologies`
     });
 
-    res.json({
-      status: "Lead + GPT Intelligence + Email complete",
-      leadId: lead._id,
-      score
-    });
+    // 🔥 TRIGGER FOLLOW-UP SYSTEM
+    scheduleFollowUps(lead);
+
+    res.json({ status: "Success", score });
 
   } catch (err) {
-    console.error("LEAD ERROR:", err.message);
+    console.error(err);
     res.status(500).json({ error: err.message });
   }
-});
-
-// ===== SEND EMAIL =====
-app.post("/send-email", authMiddleware, async (req, res) => {
-  const { message, agent } = req.body;
-
-  try {
-    const saved = await Output.create({
-      content: message,
-      agent,
-      userId: req.user.id
-    });
-
-    await resend.emails.send({
-      from: "noreply@craftrootstech.com",
-      to: "khtech2014@gmail.com",
-      subject: "CraftNova Output",
-      text: message
-    });
-
-    res.json({ status: "Saved + sent", id: saved._id });
-
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ===== HISTORY =====
-app.get("/history", authMiddleware, async (req, res) => {
-  const data = await Output.find({ userId: req.user.id })
-    .sort({ createdAt: -1 })
-    .limit(20);
-
-  res.json(data);
 });
 
 // ===== SERVER =====
