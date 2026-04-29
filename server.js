@@ -18,7 +18,7 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
-// ===== HEALTH CHECK =====
+// ===== HEALTH =====
 app.get("/", (req, res) => {
   res.send("CraftNova Backend Live 🚀");
 });
@@ -59,14 +59,24 @@ const Job = mongoose.model("Job", {
   createdAt: { type: Date, default: Date.now }
 });
 
-// ===== ENQUEUE FOLLOW-UPS =====
+const Booking = mongoose.model("Booking", {
+  name: String,
+  email: String,
+  business: String,
+  date: String,
+  time: String,
+  status: { type: String, default: "scheduled" },
+  createdAt: { type: Date, default: Date.now }
+});
+
+// ===== FOLLOW-UP QUEUE =====
 function enqueueFollowUps(lead) {
   const now = Date.now();
 
   const jobs = [
-    { step: 1, delay: 24 * 60 * 60 * 1000 }, // Day 1
-    { step: 2, delay: 3 * 24 * 60 * 60 * 1000 }, // Day 3
-    { step: 3, delay: 5 * 24 * 60 * 60 * 1000 }  // Day 5
+    { step: 1, delay: 24 * 60 * 60 * 1000 },
+    { step: 2, delay: 3 * 24 * 60 * 60 * 1000 },
+    { step: 3, delay: 5 * 24 * 60 * 60 * 1000 }
   ];
 
   jobs.forEach(j => {
@@ -93,7 +103,6 @@ async function processJobs() {
 
     for (const job of jobs) {
       try {
-        // LOCK JOB
         job.status = "processing";
         await job.save();
 
@@ -106,9 +115,7 @@ async function processJobs() {
           subject = "Quick follow-up on your audit";
           text = `Hi ${name},
 
-Did you get a chance to review your audit for ${business}?
-
-Most businesses we analyze are missing key opportunities that significantly increase leads.
+Did you review your audit for ${business}?
 
 — CraftNova AI  
 by Craftroots Technologies`;
@@ -118,9 +125,7 @@ by Craftroots Technologies`;
           subject = `How businesses like ${business} grow faster`;
           text = `Hi ${name},
 
-Businesses similar to ${business} typically increase engagement by 2–3x after improving their content and positioning.
-
-We can help you implement this.
+Businesses like yours typically grow 2–3x after improving strategy.
 
 — CraftNova AI  
 by Craftroots Technologies`;
@@ -130,9 +135,10 @@ by Craftroots Technologies`;
           subject = "Let’s improve your marketing results";
           text = `Hi ${name},
 
-If you're serious about improving results, we can implement your full strategy.
+We can implement your full strategy and drive results.
 
-Reply to this email to get started.
+Book a strategy call:
+https://craftrootstech.com/book
 
 — CraftNova AI  
 by Craftroots Technologies`;
@@ -152,10 +158,9 @@ by Craftroots Technologies`;
         job.attempts += 1;
         job.lastError = err.message;
 
-        // RETRY up to 3 times
         if (job.attempts < 3) {
           job.status = "pending";
-          job.runAt = new Date(Date.now() + 60000); // retry in 1 min
+          job.runAt = new Date(Date.now() + 60000);
         } else {
           job.status = "failed";
         }
@@ -168,7 +173,6 @@ by Craftroots Technologies`;
   }
 }
 
-// Run worker every 10 sec
 setInterval(processJobs, 10000);
 
 // ===== LEAD ROUTE =====
@@ -188,14 +192,12 @@ app.post("/lead", async (req, res) => {
     });
 
     const prompt = `
-You are an elite digital marketing consultant.
-
 Return EXACT format:
 
 OVERALL SCORE: (0-100)
 
 SUMMARY:
-(2-3 sentences)
+...
 
 PLATFORM ANALYSIS:
 Instagram:
@@ -203,16 +205,13 @@ Facebook:
 LinkedIn:
 
 KEY PROBLEMS:
-- point
-- point
+- ...
 
 STRATEGY:
-- point
-- point
+- ...
 
 ACTION PLAN:
-1. step
-2. step
+1. ...
 
 Business: ${business}
 Industry: ${industry || "Not specified"}
@@ -221,15 +220,10 @@ Goal: ${goal || "Not specified"}
 
     const ai = await openai.chat.completions.create({
       model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: "You are a world-class marketing strategist." },
-        { role: "user", content: prompt }
-      ],
-      temperature: 0.7
+      messages: [{ role: "user", content: prompt }]
     });
 
     const raw = ai.choices[0].message.content;
-
     const scoreMatch = raw.match(/OVERALL SCORE:\s*(\d{1,3})/i);
     const score = scoreMatch ? scoreMatch[1] : "N/A";
 
@@ -241,16 +235,12 @@ Goal: ${goal || "Not specified"}
       subject: `Your AI Marketing Audit for ${business}`,
       text: `Hi ${name},
 
-Here is your AI Marketing Audit:
-
 ${raw}
 
-📊 Your Marketing Score: ${score}/100
+📊 Score: ${score}/100
 
-⚠️ Businesses below 60% lose up to 70% of potential customers.
-
-👉 Want us to implement this for you?
-Reply to this email.
+Book a strategy session:
+https://craftrootstech.com/book
 
 — CraftNova AI  
 by Craftroots Technologies`
@@ -261,9 +251,51 @@ by Craftroots Technologies`
     res.json({ success: true, score });
 
   } catch (err) {
-    console.error(err);
     res.status(500).json({ error: err.message });
   }
+});
+
+// ===== BOOKING ROUTES =====
+app.post("/book", async (req, res) => {
+  const { name, email, business, date, time } = req.body;
+
+  try {
+    const exists = await Booking.findOne({ date, time });
+    if (exists) return res.status(400).json({ error: "Slot taken" });
+
+    const booking = await Booking.create({
+      name,
+      email,
+      business,
+      date,
+      time
+    });
+
+    await resend.emails.send({
+      from: "noreply@craftrootstech.com",
+      to: email,
+      subject: "Booking Confirmed",
+      text: `Hi ${name},
+
+Your session is booked.
+
+Date: ${date}
+Time: ${time}
+
+— CraftNova AI  
+by Craftroots Technologies`
+    });
+
+    res.json({ success: true, booking });
+
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/bookings", async (req, res) => {
+  const bookings = await Booking.find().sort({ createdAt: -1 });
+  res.json(bookings);
 });
 
 // ===== SERVER =====
