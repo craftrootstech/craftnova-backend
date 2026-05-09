@@ -8,6 +8,7 @@ const mongoose = require("mongoose");
 const OpenAI = require("openai");
 
 const app = express();
+
 app.use(cors());
 app.use(bodyParser.json());
 
@@ -31,6 +32,7 @@ mongoose.connection.once("open", () => {
 });
 
 // ===== MODELS =====
+
 const Lead = mongoose.model("Lead", {
   name: String,
   email: String,
@@ -40,23 +42,43 @@ const Lead = mongoose.model("Lead", {
   instagram: String,
   linkedin: String,
   goal: String,
-  createdAt: { type: Date, default: Date.now }
+  createdAt: {
+    type: Date,
+    default: Date.now
+  }
 });
 
 const Output = mongoose.model("Output", {
   content: String,
   score: String,
-  createdAt: { type: Date, default: Date.now }
+  agent: String,
+  createdAt: {
+    type: Date,
+    default: Date.now
+  }
 });
 
 const Job = mongoose.model("Job", {
   type: String,
   payload: Object,
   runAt: Date,
-  status: { type: String, default: "pending" },
-  attempts: { type: Number, default: 0 },
+
+  status: {
+    type: String,
+    default: "pending"
+  },
+
+  attempts: {
+    type: Number,
+    default: 0
+  },
+
   lastError: String,
-  createdAt: { type: Date, default: Date.now }
+
+  createdAt: {
+    type: Date,
+    default: Date.now
+  }
 });
 
 const Booking = mongoose.model("Booking", {
@@ -65,12 +87,46 @@ const Booking = mongoose.model("Booking", {
   business: String,
   date: String,
   time: String,
-  status: { type: String, default: "scheduled" },
-  createdAt: { type: Date, default: Date.now }
+
+  status: {
+    type: String,
+    default: "scheduled"
+  },
+
+  createdAt: {
+    type: Date,
+    default: Date.now
+  }
+});
+
+// ===== PAYMENTS =====
+const Payment = mongoose.model("Payment", {
+  name: String,
+  email: String,
+  business: String,
+
+  amount: Number,
+
+  reference: String,
+  proofUrl: String,
+
+  status: {
+    type: String,
+    default: "pending"
+  },
+
+  verifiedAt: Date,
+
+  createdAt: {
+    type: Date,
+    default: Date.now
+  }
 });
 
 // ===== FOLLOW-UP QUEUE =====
+
 function enqueueFollowUps(lead) {
+
   const now = Date.now();
 
   const jobs = [
@@ -80,68 +136,96 @@ function enqueueFollowUps(lead) {
   ];
 
   jobs.forEach(j => {
+
     Job.create({
       type: "followup",
+
       payload: {
         name: lead.name,
         email: lead.email,
         business: lead.business,
         step: j.step
       },
+
       runAt: new Date(now + j.delay)
     });
+
   });
 }
 
 // ===== WORKER =====
+
 async function processJobs() {
+
   try {
+
     const jobs = await Job.find({
       status: "pending",
-      runAt: { $lte: new Date() }
+      runAt: {
+        $lte: new Date()
+      }
     }).limit(5);
 
     for (const job of jobs) {
+
       try {
+
         job.status = "processing";
         await job.save();
 
-        const { name, email, business, step } = job.payload;
+        const {
+          name,
+          email,
+          business,
+          step
+        } = job.payload;
 
         let subject = "";
         let text = "";
 
         if (step === 1) {
+
           subject = "Quick follow-up on your audit";
-          text = `Hi ${name},
+
+          text = `
+Hi ${name},
 
 Did you review your audit for ${business}?
 
-— CraftNova AI  
-by Craftroots Technologies`;
+— CraftNova AI
+by Craftroots Technologies
+`;
         }
 
         if (step === 2) {
+
           subject = `How businesses like ${business} grow faster`;
-          text = `Hi ${name},
+
+          text = `
+Hi ${name},
 
 Businesses like yours typically grow 2–3x after improving strategy.
 
-— CraftNova AI  
-by Craftroots Technologies`;
+— CraftNova AI
+by Craftroots Technologies
+`;
         }
 
         if (step === 3) {
+
           subject = "Let’s improve your marketing results";
-          text = `Hi ${name},
+
+          text = `
+Hi ${name},
 
 We can implement your full strategy and drive results.
 
-Book a strategy call:
-https://craftrootstech.com/book
+Secure your strategy session:
+https://craftrootstech.com/pay
 
-— CraftNova AI  
-by Craftroots Technologies`;
+— CraftNova AI
+by Craftroots Technologies
+`;
         }
 
         await resend.emails.send({
@@ -155,31 +239,55 @@ by Craftroots Technologies`;
         await job.save();
 
       } catch (err) {
+
         job.attempts += 1;
         job.lastError = err.message;
 
         if (job.attempts < 3) {
+
           job.status = "pending";
-          job.runAt = new Date(Date.now() + 60000);
+
+          job.runAt = new Date(
+            Date.now() + 60000
+          );
+
         } else {
+
           job.status = "failed";
         }
 
         await job.save();
       }
     }
+
   } catch (err) {
-    console.error("Worker error:", err.message);
+
+    console.error(
+      "Worker error:",
+      err.message
+    );
   }
 }
 
 setInterval(processJobs, 10000);
 
 // ===== LEAD ROUTE =====
+
 app.post("/lead", async (req, res) => {
-  const { name, email, business, industry, facebook, instagram, linkedin, goal } = req.body;
+
+  const {
+    name,
+    email,
+    business,
+    industry,
+    facebook,
+    instagram,
+    linkedin,
+    goal
+  } = req.body;
 
   try {
+
     const lead = await Lead.create({
       name,
       email,
@@ -220,48 +328,104 @@ Goal: ${goal || "Not specified"}
 
     const ai = await openai.chat.completions.create({
       model: "gpt-4o-mini",
-      messages: [{ role: "user", content: prompt }]
+
+      messages: [
+        {
+          role: "user",
+          content: prompt
+        }
+      ]
     });
 
     const raw = ai.choices[0].message.content;
-    const scoreMatch = raw.match(/OVERALL SCORE:\s*(\d{1,3})/i);
-    const score = scoreMatch ? scoreMatch[1] : "N/A";
 
-    await Output.create({ content: raw, score });
+    const scoreMatch = raw.match(
+      /OVERALL SCORE:\s*(\d{1,3})/i
+    );
+
+    const score = scoreMatch
+      ? scoreMatch[1]
+      : "N/A";
+
+    await Output.create({
+      content: raw,
+      score,
+      agent: "audit"
+    });
 
     await resend.emails.send({
       from: "noreply@craftrootstech.com",
       to: email,
+
       subject: `Your AI Marketing Audit for ${business}`,
-      text: `Hi ${name},
+
+      text: `
+Hi ${name},
 
 ${raw}
 
 📊 Score: ${score}/100
 
-Book a strategy session:
-https://craftrootstech.com/book
+Secure your strategy session:
+https://craftrootstech.com/pay
 
-— CraftNova AI  
-by Craftroots Technologies`
+— CraftNova AI
+by Craftroots Technologies
+`
     });
 
     enqueueFollowUps(lead);
 
-    res.json({ success: true, score });
+    res.json({
+      success: true,
+      score
+    });
 
   } catch (err) {
-    res.status(500).json({ error: err.message });
+
+    console.error(err);
+
+    res.status(500).json({
+      error: err.message
+    });
   }
 });
 
-// ===== BOOKING ROUTES =====
+// ===== BOOK SESSION =====
+
 app.post("/book", async (req, res) => {
-  const { name, email, business, date, time } = req.body;
+
+  const {
+    name,
+    email,
+    business,
+    date,
+    time,
+    paymentId
+  } = req.body;
 
   try {
-    const exists = await Booking.findOne({ date, time });
-    if (exists) return res.status(400).json({ error: "Slot taken" });
+
+    const payment = await Payment.findById(paymentId);
+
+    if (!payment || payment.status !== "verified") {
+
+      return res.status(403).json({
+        error: "Payment not verified yet"
+      });
+    }
+
+    const exists = await Booking.findOne({
+      date,
+      time
+    });
+
+    if (exists) {
+
+      return res.status(400).json({
+        error: "Slot already taken"
+      });
+    }
 
     const booking = await Booking.create({
       name,
@@ -274,33 +438,282 @@ app.post("/book", async (req, res) => {
     await resend.emails.send({
       from: "noreply@craftrootstech.com",
       to: email,
-      subject: "Booking Confirmed",
-      text: `Hi ${name},
 
-Your session is booked.
+      subject: "Strategy Session Confirmed",
 
-Date: ${date}
-Time: ${time}
+      text: `
+Hi ${name},
 
-— CraftNova AI  
-by Craftroots Technologies`
+Your booking has been confirmed.
+
+Business:
+${business}
+
+Date:
+${date}
+
+Time:
+${time}
+
+— CraftNova AI
+by Craftroots Technologies
+`
     });
 
-    res.json({ success: true, booking });
+    res.json({
+      success: true,
+      booking
+    });
 
   } catch (err) {
-    res.status(500).json({ error: err.message });
+
+    console.error(err);
+
+    res.status(500).json({
+      error: err.message
+    });
   }
 });
 
+// ===== BOOKINGS =====
+
 app.get("/bookings", async (req, res) => {
-  const bookings = await Booking.find().sort({ createdAt: -1 });
-  res.json(bookings);
+
+  try {
+
+    const bookings = await Booking.find()
+      .sort({ createdAt: -1 });
+
+    res.json(bookings);
+
+  } catch (err) {
+
+    res.status(500).json({
+      error: err.message
+    });
+  }
+});
+
+// ===== SUBMIT PAYMENT =====
+
+app.post("/submit-payment", async (req, res) => {
+
+  const {
+    name,
+    email,
+    business,
+    amount,
+    reference,
+    proofUrl
+  } = req.body;
+
+  try {
+
+    const payment = await Payment.create({
+      name,
+      email,
+      business,
+      amount,
+      reference,
+      proofUrl
+    });
+
+    await resend.emails.send({
+      from: "noreply@craftrootstech.com",
+      to: "info@craftrootstech.com",
+
+      subject: "New Payment Submitted",
+
+      text: `
+New payment submitted.
+
+Name:
+${name}
+
+Email:
+${email}
+
+Business:
+${business}
+
+Amount:
+N$${amount}
+
+Reference:
+${reference}
+
+Proof:
+${proofUrl}
+`
+    });
+
+    res.json({
+      success: true,
+      paymentId: payment._id
+    });
+
+  } catch (err) {
+
+    console.error(err);
+
+    res.status(500).json({
+      error: err.message
+    });
+  }
+});
+
+// ===== VERIFY PAYMENT =====
+
+app.post("/verify-payment/:id", async (req, res) => {
+
+  try {
+
+    const payment = await Payment.findByIdAndUpdate(
+
+      req.params.id,
+
+      {
+        status: "verified",
+        verifiedAt: new Date()
+      },
+
+      {
+        new: true
+      }
+    );
+
+    if (!payment) {
+
+      return res.status(404).json({
+        error: "Payment not found"
+      });
+    }
+
+    await resend.emails.send({
+      from: "noreply@craftrootstech.com",
+      to: payment.email,
+
+      subject: "Payment Verified",
+
+      text: `
+Hi ${payment.name},
+
+Your payment has been verified successfully.
+
+You may now book your strategy session.
+
+Booking link:
+https://craftrootstech.com/book
+
+Payment ID:
+${payment._id}
+
+— CraftNova AI
+by Craftroots Technologies
+`
+    });
+
+    res.json({
+      success: true,
+      payment
+    });
+
+  } catch (err) {
+
+    console.error(err);
+
+    res.status(500).json({
+      error: err.message
+    });
+  }
+});
+
+// ===== PAYMENTS =====
+
+app.get("/payments", async (req, res) => {
+
+  try {
+
+    const payments = await Payment.find()
+      .sort({ createdAt: -1 });
+
+    res.json(payments);
+
+  } catch (err) {
+
+    res.status(500).json({
+      error: err.message
+    });
+  }
+});
+
+// ===== HISTORY =====
+
+app.get("/history", async (req, res) => {
+
+  try {
+
+    const outputs = await Output.find()
+      .sort({ createdAt: -1 })
+      .limit(20);
+
+    res.json(outputs);
+
+  } catch (err) {
+
+    res.status(500).json({
+      error: err.message
+    });
+  }
+});
+
+// ===== SEND EMAIL =====
+
+app.post("/send-email", async (req, res) => {
+
+  const {
+    message,
+    agent
+  } = req.body;
+
+  try {
+
+    await resend.emails.send({
+      from: "noreply@craftrootstech.com",
+      to: "info@craftrootstech.com",
+
+      subject: `CraftNova AI Output (${agent})`,
+
+      text: message
+    });
+
+    await Output.create({
+      content: message,
+      agent,
+      score: "N/A"
+    });
+
+    res.json({
+      success: true
+    });
+
+  } catch (err) {
+
+    console.error(err);
+
+    res.status(500).json({
+      error: err.message
+    });
+  }
 });
 
 // ===== SERVER =====
+
 const PORT = process.env.PORT || 3001;
 
 app.listen(PORT, () => {
-  console.log("🚀 CraftNova running on port " + PORT);
+
+  console.log(
+    "🚀 CraftNova running on port " + PORT
+  );
 });
