@@ -496,6 +496,8 @@ app.get("/bookings", async (req, res) => {
 
 // ===== SUBMIT PAYMENT =====
 
+// ===== SUBMIT PAYMENT =====
+
 app.post("/submit-payment", async (req, res) => {
 
   const {
@@ -509,6 +511,7 @@ app.post("/submit-payment", async (req, res) => {
 
   try {
 
+    // SAVE PAYMENT FIRST
     const payment = await Payment.create({
       name,
       email,
@@ -517,6 +520,11 @@ app.post("/submit-payment", async (req, res) => {
       reference,
       proofUrl
     });
+
+    console.log("✅ Payment saved:", payment._id);
+
+    // EMAIL TEMPORARILY DISABLED
+    // This isolates database/payment
 
     await resend.emails.send({
       from: "noreply@craftrootstech.com",
