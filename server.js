@@ -572,8 +572,16 @@ ${proofUrl}
 
 // ===== VERIFY PAYMENT =====
 
-app.post("/verify-payment/:id", async (req, res) => {
+app.get("/verify-payment/:id", async (req, res) => {
 
+  try {
+
+    const payment = await Payment.findByIdAndUpdate(
+
+      req.params.id,
+
+      {
+        status: "
   try {
 
     const payment = await Payment.findByIdAndUpdate(
