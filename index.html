@@ -10,12 +10,7 @@
     content="width=device-width, initial-scale=1.0"
   />
 
-  <meta
-    name="description"
-    content="CraftNova AI Operational CRM Platform"
-  />
-
-  <title>CraftNova AI Platform</title>
+  <title>CraftNova Login</title>
 
   <script src="https://cdn.tailwindcss.com"></script>
 
@@ -30,11 +25,9 @@
           colors: {
 
             primary: "#3B82F6",
-            secondary: "#8B5CF6",
             bg: "#0B0F1A",
             card: "#111827",
             border: "#1F2937"
-
           }
         }
       }
@@ -44,976 +37,127 @@
 
 </head>
 
-<body class="bg-bg text-white min-h-screen">
+<body class="bg-bg min-h-screen flex items-center justify-center p-6 text-white">
 
-<div class="flex min-h-screen">
+<div class="bg-card border border-border rounded-2xl p-8 w-full max-w-md">
 
-  <!-- SIDEBAR -->
+  <h1 class="text-3xl font-bold mb-2">
+    🔐 CraftNova Login
+  </h1>
 
-  <aside
-    class="hidden md:flex md:w-64 bg-card border-r border-border flex-col p-6"
-  >
+  <p class="text-gray-400 mb-6">
+    Secure Admin Access
+  </p>
 
-    <h1 class="text-3xl font-bold mb-10">
-      🚀 CraftNova
-    </h1>
+  <div class="space-y-4">
 
-    <nav class="space-y-4 text-sm">
+    <input
+      id="email"
+      type="email"
+      placeholder="Admin Email"
+      class="w-full bg-black border border-border rounded-xl p-3 outline-none"
+    />
 
-      <p class="uppercase text-gray-500 tracking-wider text-xs">
-        System
-      </p>
+    <input
+      id="password"
+      type="password"
+      placeholder="Password"
+      class="w-full bg-black border border-border rounded-xl p-3 outline-none"
+    />
 
-      <a href="#" class="block hover:text-primary transition">
-        Dashboard
-      </a>
-
-      <a href="#" class="block hover:text-primary transition">
-        CRM
-      </a>
-
-      <a href="#" class="block hover:text-primary transition">
-        Payments
-      </a>
-
-      <a href="#" class="block hover:text-primary transition">
-        Bookings
-      </a>
-
-      <a href="#" class="block hover:text-primary transition">
-        Analytics
-      </a>
-
-    </nav>
-
-  </aside>
-
-  <!-- MAIN -->
-
-  <main class="flex-1 p-6 space-y-6">
-
-    <!-- HEADER -->
-
-    <header class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-
-      <div>
-
-        <h1 class="text-4xl font-bold">
-          CraftNova Admin Dashboard
-        </h1>
-
-        <p class="text-gray-400 mt-2">
-          Operational AI + CRM Control Center
-        </p>
-
-      </div>
-
-    </header>
-
-    <!-- METRICS -->
-
-    <section
-      class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4"
+    <button
+      onclick="login()"
+      class="w-full bg-primary hover:opacity-90 transition rounded-xl py-3 font-semibold"
     >
-
-      <div class="bg-card border border-border rounded-2xl p-5">
-
-        <p class="text-gray-400 text-sm">
-          Leads
-        </p>
-
-        <h2
-          id="metricLeads"
-          class="text-3xl font-bold mt-2"
-        >
-          0
-        </h2>
-
-      </div>
-
-      <div class="bg-card border border-border rounded-2xl p-5">
-
-        <p class="text-gray-400 text-sm">
-          Payments
-        </p>
-
-        <h2
-          id="metricPayments"
-          class="text-3xl font-bold mt-2"
-        >
-          0
-        </h2>
-
-      </div>
-
-      <div class="bg-card border border-border rounded-2xl p-5">
-
-        <p class="text-gray-400 text-sm">
-          Verified
-        </p>
-
-        <h2
-          id="metricVerified"
-          class="text-3xl font-bold mt-2 text-green-400"
-        >
-          0
-        </h2>
-
-      </div>
-
-      <div class="bg-card border border-border rounded-2xl p-5">
-
-        <p class="text-gray-400 text-sm">
-          Bookings
-        </p>
-
-        <h2
-          id="metricBookings"
-          class="text-3xl font-bold mt-2"
-        >
-          0
-        </h2>
-
-      </div>
-
-      <div class="bg-card border border-border rounded-2xl p-5">
-
-        <p class="text-gray-400 text-sm">
-          Revenue
-        </p>
-
-        <h2
-          id="metricRevenue"
-          class="text-3xl font-bold mt-2 text-primary"
-        >
-          N$0
-        </h2>
-
-      </div>
-
-    </section>
-
-    <!-- LEAD CAPTURE -->
-
-    <section
-      class="bg-card border border-border rounded-2xl p-6"
-    >
-
-      <h2 class="text-xl font-semibold mb-4">
-        Free Marketing Audit
-      </h2>
-
-      <div class="grid gap-4">
-
-        <input
-          id="leadName"
-          type="text"
-          placeholder="Full Name"
-          class="bg-black border border-border rounded-xl p-3 outline-none"
-        />
-
-        <input
-          id="leadEmail"
-          type="email"
-          placeholder="Email Address"
-          class="bg-black border border-border rounded-xl p-3 outline-none"
-        />
-
-        <input
-          id="leadBusiness"
-          type="text"
-          placeholder="Business Name"
-          class="bg-black border border-border rounded-xl p-3 outline-none"
-        />
-
-        <button
-          onclick="submitLead()"
-          class="bg-primary hover:opacity-90 transition rounded-xl py-3 font-semibold"
-        >
-          Generate Audit
-        </button>
-
-        <p
-          id="leadStatus"
-          class="text-sm text-gray-400"
-        ></p>
-
-      </div>
-
-    </section>
-
-    <!-- AI PANEL -->
-
-    <section
-      class="bg-card border border-border rounded-2xl p-6"
-    >
-
-      <h2 class="text-xl font-semibold mb-4">
-        AI Command Center
-      </h2>
-
-      <div
-        id="output"
-        class="bg-black rounded-xl p-4 h-72 overflow-y-auto mb-4 text-sm space-y-4"
-      ></div>
-
-      <div class="flex gap-3">
-
-        <input
-          id="prompt"
-          type="text"
-          placeholder="Ask CraftNova..."
-          class="flex-1 bg-black border border-border rounded-xl p-3 outline-none"
-        />
-
-        <button
-          onclick="runAI()"
-          class="bg-secondary hover:opacity-90 transition rounded-xl px-5"
-        >
-          Run
-        </button>
-
-      </div>
-
-    </section>
-
-    <!-- PAYMENTS -->
-
-    <section
-      class="bg-card border border-border rounded-2xl p-6"
-    >
-
-      <h2 class="text-xl font-semibold mb-6">
-        Payment Management
-      </h2>
-
-      <div class="overflow-x-auto">
-
-        <table class="w-full text-sm">
-
-          <thead>
-
-            <tr class="border-b border-border text-gray-400">
-
-              <th class="text-left pb-4">
-                Business
-              </th>
-
-              <th class="text-left pb-4">
-                Amount
-              </th>
-
-              <th class="text-left pb-4">
-                Status
-              </th>
-
-              <th class="text-left pb-4">
-                Action
-              </th>
-
-            </tr>
-
-          </thead>
-
-          <tbody id="paymentsTable"></tbody>
-
-        </table>
-
-      </div>
-
-    </section>
-
-    <!-- BOOKINGS -->
-
-    <section
-      class="bg-card border border-border rounded-2xl p-6"
-    >
-
-      <h2 class="text-xl font-semibold mb-6">
-        Bookings
-      </h2>
-
-      <div class="overflow-x-auto">
-
-        <table class="w-full text-sm">
-
-          <thead>
-
-            <tr class="border-b border-border text-gray-400">
-
-              <th class="text-left pb-4">
-                Business
-              </th>
-
-              <th class="text-left pb-4">
-                Date
-              </th>
-
-              <th class="text-left pb-4">
-                Time
-              </th>
-
-              <th class="text-left pb-4">
-                Status
-              </th>
-
-            </tr>
-
-          </thead>
-
-          <tbody id="bookingsTable"></tbody>
-
-        </table>
-
-      </div>
-
-    </section>
-
-    <!-- CRM -->
-
-    <section
-      class="bg-card border border-border rounded-2xl p-6"
-    >
-
-      <h2 class="text-xl font-semibold mb-6">
-        CRM Pipeline
-      </h2>
-
-      <div class="overflow-x-auto">
-
-        <table class="w-full text-sm">
-
-          <thead>
-
-            <tr class="border-b border-border text-gray-400">
-
-              <th class="text-left pb-4">
-                Business
-              </th>
-
-              <th class="text-left pb-4">
-                Email
-              </th>
-
-              <th class="text-left pb-4">
-                Status
-              </th>
-
-              <th class="text-left pb-4">
-                Notes
-              </th>
-
-              <th class="text-left pb-4">
-                Action
-              </th>
-
-            </tr>
-
-          </thead>
-
-          <tbody id="crmTable"></tbody>
-
-        </table>
-
-      </div>
-
-    </section>
-
-    <!-- HISTORY -->
-
-    <section
-      class="bg-card border border-border rounded-2xl p-6"
-    >
-
-      <h2 class="text-xl font-semibold mb-6">
-        Recent Outputs
-      </h2>
-
-      <div
-        id="historyPanel"
-        class="space-y-4"
-      ></div>
-
-    </section>
-
-  </main>
+      Login
+    </button>
+
+    <p
+      id="error"
+      class="text-red-400 text-sm"
+    ></p>
+
+  </div>
 
 </div>
 
+<script src="js/config.js"></script>
+<script src="js/auth.js"></script>
+
 <script>
 
-const API_BASE =
-  "https://craftnova-backend.onrender.com";
+async function login() {
 
-// ===== AI =====
+  const email =
+    document.getElementById("email").value;
 
-function detectAgent(input) {
-
-  const text =
-    input.toLowerCase();
-
-  if (
-    text.includes("marketing") ||
-    text.includes("content")
-  ) return "content";
-
-  if (
-    text.includes("data")
-  ) return "data";
-
-  if (
-    text.includes("automation")
-  ) return "automation";
-
-  return "general";
-}
-
-function executeAgent(agent, input) {
-
-  if (agent === "content") {
-
-    return `
-Marketing Strategy:
-
-- Hook
-- Value Proposition
-- CTA
-
-Topic:
-${input}
-`;
-  }
-
-  if (agent === "data") {
-
-    return `
-Data Insights:
-
-${input}
-`;
-  }
-
-  if (agent === "automation") {
-
-    return `
-Automation Workflow:
-
-${input}
-`;
-  }
-
-  return `
-General Response:
-
-${input}
-`;
-}
-
-// ===== RUN AI =====
-
-async function runAI() {
-
-  const input =
-    document.getElementById("prompt");
-
-  const output =
-    document.getElementById("output");
-
-  const text =
-    input.value.trim();
-
-  if (!text) return;
-
-  const agent =
-    detectAgent(text);
-
-  output.innerHTML += `
-    <div class="bg-gray-900 rounded-xl p-4">
-      <p class="text-blue-400 mb-2">
-        > ${text}
-      </p>
-    </div>
-  `;
-
-  const result =
-    executeAgent(agent, text);
-
-  output.innerHTML += `
-    <div class="bg-black rounded-xl p-4">
-      <pre class="whitespace-pre-wrap text-sm">${result}</pre>
-    </div>
-  `;
-
-  input.value = "";
-
-  await sendToAPI(result, agent);
-}
-
-// ===== SEND TO BACKEND =====
-
-async function sendToAPI(message, agent) {
-
-  try {
-
-    await fetch(
-      `${API_BASE}/send-email`,
-      {
-        method: "POST",
-
-        headers: {
-          "Content-Type":
-            "application/json"
-        },
-
-        body: JSON.stringify({
-          message,
-          agent
-        })
-      }
-    );
-
-  } catch (err) {
-
-    console.error(err);
-  }
-}
-
-// ===== LEAD =====
-
-async function submitLead() {
-
-  const status =
-    document.getElementById("leadStatus");
-
-  status.innerText =
-    "Submitting...";
-
-  try {
-
-    const payload = {
-
-      name:
-        document.getElementById("leadName").value,
-
-      email:
-        document.getElementById("leadEmail").value,
-
-      business:
-        document.getElementById("leadBusiness").value
-    };
-
-    await fetch(
-      `${API_BASE}/lead`,
-      {
-        method: "POST",
-
-        headers: {
-          "Content-Type":
-            "application/json"
-        },
-
-        body: JSON.stringify(payload)
-      }
-    );
-
-    status.innerText =
-      "✅ Audit submitted successfully";
-
-  } catch (err) {
-
-    console.error(err);
-
-    status.innerText =
-      "❌ Submission failed";
-  }
-}
-
-// ===== HISTORY =====
-
-async function loadHistory() {
+  const password =
+    document.getElementById("password").value;
 
   try {
 
     const res =
       await fetch(
-        `${API_BASE}/history`
+
+        `${API_BASE}/admin-login`,
+
+        {
+
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json"
+          },
+
+          body: JSON.stringify({
+            email,
+            password
+          })
+        }
       );
 
     const data =
       await res.json();
 
-    document.getElementById(
-      "historyPanel"
-    ).innerHTML =
-      data.map(item => `
+    if (!data.success) {
 
-        <div class="bg-black rounded-xl p-4 border border-border">
+      document.getElementById(
+        "error"
+      ).innerText =
+        data.error || "Login failed";
 
-          <p class="text-xs text-gray-500 mb-2">
-            ${item.agent || "general"}
-          </p>
+      return;
+    }
 
-          <pre class="whitespace-pre-wrap text-sm">
-${item.content}
-          </pre>
+    setToken(data.token);
 
-        </div>
-
-      `).join("");
+    window.location.href =
+      "admin.html";
 
   } catch (err) {
 
     console.error(err);
-  }
-}
-
-// ===== PAYMENTS =====
-
-async function loadPayments() {
-
-  try {
-
-    const res =
-      await fetch(
-        `${API_BASE}/payments`
-      );
-
-    const data =
-      await res.json();
 
     document.getElementById(
-      "metricPayments"
+      "error"
     ).innerText =
-      data.length;
-
-    const verified =
-      data.filter(
-        p => p.status === "verified"
-      );
-
-    document.getElementById(
-      "metricVerified"
-    ).innerText =
-      verified.length;
-
-    const revenue =
-      verified.reduce(
-        (sum, p) =>
-          sum + (p.amount || 0),
-        0
-      );
-
-    document.getElementById(
-      "metricRevenue"
-    ).innerText =
-      `N$${revenue}`;
-
-    document.getElementById(
-      "paymentsTable"
-    ).innerHTML =
-      data.map(payment => `
-
-        <tr class="border-b border-border">
-
-          <td class="py-4">
-            ${payment.business}
-          </td>
-
-          <td class="py-4">
-            N$${payment.amount}
-          </td>
-
-          <td class="py-4">
-            ${payment.status}
-          </td>
-
-          <td class="py-4">
-
-            ${
-              payment.status !== "verified"
-
-              ? `
-
-              <button
-                onclick="verifyPayment('${payment._id}')"
-                class="bg-green-600 px-3 py-1 rounded-lg text-xs"
-              >
-                Verify
-              </button>
-
-              `
-
-              : "Verified"
-            }
-
-          </td>
-
-        </tr>
-
-      `).join("");
-
-  } catch (err) {
-
-    console.error(err);
+      "Connection failed";
   }
 }
 
-// ===== VERIFY PAYMENT =====
-
-async function verifyPayment(id) {
-
-  try {
-
-    await fetch(
-      `${API_BASE}/verify-payment/${id}`
-    );
-
-    await loadPayments();
-
-  } catch (err) {
-
-    console.error(err);
-  }
-}
-
-// ===== BOOKINGS =====
-
-async function loadBookings() {
-
-  try {
-
-    const res =
-      await fetch(
-        `${API_BASE}/bookings`
-      );
-
-    const data =
-      await res.json();
-
-    document.getElementById(
-      "metricBookings"
-    ).innerText =
-      data.length;
-
-    document.getElementById(
-      "bookingsTable"
-    ).innerHTML =
-      data.map(booking => `
-
-        <tr class="border-b border-border">
-
-          <td class="py-4">
-            ${booking.business}
-          </td>
-
-          <td class="py-4">
-            ${booking.date}
-          </td>
-
-          <td class="py-4">
-            ${booking.time}
-          </td>
-
-          <td class="py-4">
-            ${booking.status}
-          </td>
-
-        </tr>
-
-      `).join("");
-
-  } catch (err) {
-
-    console.error(err);
-  }
-}
-
-// ===== CRM METRICS =====
-
-async function loadLeadMetrics() {
-
-  try {
-
-    const res =
-      await fetch(
-        `${API_BASE}/crm-metrics`
-      );
-
-    const data =
-      await res.json();
-
-    document.getElementById(
-      "metricLeads"
-    ).innerText =
-      data.totalLeads || 0;
-
-  } catch (err) {
-
-    console.error(err);
-  }
-}
-
-// ===== CRM =====
-
-async function loadCRM() {
-
-  try {
-
-    const res =
-      await fetch(
-        `${API_BASE}/leads`
-      );
-
-    const leads =
-      await res.json();
-
-    document.getElementById(
-      "crmTable"
-    ).innerHTML =
-      leads.map(lead => `
-
-        <tr class="border-b border-border">
-
-          <td class="py-4">
-            ${lead.business || "-"}
-          </td>
-
-          <td class="py-4">
-            ${lead.email || "-"}
-          </td>
-
-          <td class="py-4">
-
-            <select
-              onchange="updateLeadStatus('${lead._id}', this.value)"
-              class="bg-black border border-border rounded-lg px-2 py-1"
-            >
-
-              ${[
-                "new",
-                "interested",
-                "paid",
-                "booked",
-                "client",
-                "completed"
-              ].map(status => `
-
-                <option
-                  value="${status}"
-                  ${
-                    lead.status === status
-                    ? "selected"
-                    : ""
-                  }
-                >
-
-                  ${status}
-
-                </option>
-
-              `).join("")}
-
-            </select>
-
-          </td>
-
-          <td class="py-4">
-
-            <textarea
-              onchange="updateLeadNotes('${lead._id}', this.value)"
-              class="bg-black border border-border rounded-lg p-2 w-full text-xs"
-              rows="2"
-            >${lead.notes || ""}</textarea>
-
-          </td>
-
-          <td class="py-4 text-green-400">
-            Active
-          </td>
-
-        </tr>
-
-      `).join("");
-
-  } catch (err) {
-
-    console.error(err);
-  }
-}
-
-// ===== UPDATE STATUS =====
-
-async function updateLeadStatus(id, status) {
-
-  try {
-
-    await fetch(
-
-      `${API_BASE}/lead-status/${id}`,
-
-      {
-        method: "POST",
-
-        headers: {
-          "Content-Type":
-            "application/json"
-        },
-
-        body: JSON.stringify({
-          status
-        })
-      }
-    );
-
-  } catch (err) {
-
-    console.error(err);
-  }
-}
-
-// ===== UPDATE NOTES =====
-
-async function updateLeadNotes(id, notes) {
-
-  try {
-
-    await fetch(
-
-      `${API_BASE}/lead-notes/${id}`,
-
-      {
-        method: "POST",
-
-        headers: {
-          "Content-Type":
-            "application/json"
-        },
-
-        body: JSON.stringify({
-          notes
-        })
-      }
-    );
-
-  } catch (err) {
-
-    console.error(err);
-  }
-}
-
-// ===== INIT =====
+// ===== AUTO REDIRECT =====
 
 window.onload = async () => {
 
-  await loadHistory();
+  const valid =
+    await verifySession();
 
-  await loadPayments();
+  if (valid) {
 
-  await loadBookings();
-
-  await loadLeadMetrics();
-
-  await loadCRM();
+    window.location.href =
+      "admin.html";
+  }
 };
 
 </script>

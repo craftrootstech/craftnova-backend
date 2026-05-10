@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+  <meta charset="UTF-8" />
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  />
+
+  <meta
+    name="description"
+    content="CraftNova AI Operational CRM Platform"
+  />
+
+  <title>CraftNova AI Platform</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <script>
+
+    tailwind.config = {
+
+      theme: {
+
+        extend: {
+
+          colors: {
+
+            primary: "#3B82F6",
+            secondary: "#8B5CF6",
+            bg: "#0B0F1A",
+            card: "#111827",
+            border: "#1F2937"
+
+          }
+        }
+      }
+    };
+
+  </script>
+
+</head>
+
+<body class="bg-bg text-white min-h-screen">
+
+<div class="flex min-h-screen">
+
+  <!-- SIDEBAR -->
+
+  <aside
+    class="hidden md:flex md:w-64 bg-card border-r border-border flex-col p-6"
+  >
+
+    <h1 class="text-3xl font-bold mb-10">
+      🚀 CraftNova
+    </h1>
+
+    <nav class="space-y-4 text-sm">
+
+      <p class="uppercase text-gray-500 tracking-wider text-xs">
+        System
+      </p>
+
+      <a href="#" class="block hover:text-primary transition">
+        Dashboard
+      </a>
+
+      <a href="#" class="block hover:text-primary transition">
+        CRM
+      </a>
+
+      <a href="#" class="block hover:text-primary transition">
+        Payments
+      </a>
+
+      <a href="#" class="block hover:text-primary transition">
+        Bookings
+      </a>
+
+      <a href="#" class="block hover:text-primary transition">
+        Analytics
+      </a>
+
+    </nav>
+
+  </aside>
+
+  <!-- MAIN -->
+
+  <main class="flex-1 p-6 space-y-6">
+
+    <!-- HEADER -->
+
+    <header class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+
+      <div>
+
+        <h1 class="text-4xl font-bold">
+          CraftNova Admin Dashboard
+        </h1>
+
+        <p class="text-gray-400 mt-2">
+          Operational AI + CRM Control Center
+        </p>
+
+      </div>
+
+    </header>
+
+    <!-- METRICS -->
+
+    <section
+      class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4"
+    >
+
+      <div class="bg-card border border-border rounded-2xl p-5">
+
+        <p class="text-gray-400 text-sm">
+          Leads
+        </p>
+
+        <h2
+          id="metricLeads"
+          class="text-3xl font-bold mt-2"
+        >
+          0
+        </h2>
+
+      </div>
+
+      <div class="bg-card border border-border rounded-2xl p-5">
+
+        <p class="text-gray-400 text-sm">
+          Payments
+        </p>
+
+        <h2
+          id="metricPayments"
+          class="text-3xl font-bold mt-2"
+        >
+          0
+        </h2>
+
+      </div>
+
+      <div class="bg-card border border-border rounded-2xl p-5">
+
+        <p class="text-gray-400 text-sm">
+          Verified
+        </p>
+
+        <h2
+          id="metricVerified"
+          class="text-3xl font-bold mt-2 text-green-400"
+        >
+          0
+        </h2>
+
+      </div>
+
+      <div class="bg-card border border-border rounded-2xl p-5">
+
+        <p class="text-gray-400 text-sm">
+          Bookings
+        </p>
+
+        <h2
+          id="metricBookings"
+          class="text-3xl font-bold mt-2"
+        >
+          0
+        </h2>
+
+      </div>
+
+      <div class="bg-card border border-border rounded-2xl p-5">
+
+        <p class="text-gray-400 text-sm">
+          Revenue
+        </p>
+
+        <h2
+          id="metricRevenue"
+          class="text-3xl font-bold mt-2 text-primary"
+        >
+          N$0
+        </h2>
+
+      </div>
+
+    </section>
+
+    <!-- LEAD CAPTURE -->
+
+    <section
+      class="bg-card border border-border rounded-2xl p-6"
+    >
+
+      <h2 class="text-xl font-semibold mb-4">
+        Free Marketing Audit
+      </h2>
+
+      <div class="grid gap-4">
+
+        <input
+          id="leadName"
+          type="text"
+          placeholder="Full Name"
+          class="bg-black border border-border rounded-xl p-3 outline-none"
+        />
+
+        <input
+          id="leadEmail"
+          type="email"
+          placeholder="Email Address"
+          class="bg-black border border-border rounded-xl p-3 outline-none"
+        />
+
+        <input
+          id="leadBusiness"
+          type="text"
+          placeholder="Business Name"
+          class="bg-black border border-border rounded-xl p-3 outline-none"
+        />
+
+        <button
+          onclick="submitLead()"
+          class="bg-primary hover:opacity-90 transition rounded-xl py-3 font-semibold"
+        >
+          Generate Audit
+        </button>
+
+        <p
+          id="leadStatus"
+          class="text-sm text-gray-400"
+        ></p>
+
+      </div>
+
+    </section>
+
+    <!-- AI PANEL -->
+
+    <section
+      class="bg-card border border-border rounded-2xl p-6"
+    >
+
+      <h2 class="text-xl font-semibold mb-4">
+        AI Command Center
+      </h2>
+
+      <div
+        id="output"
+        class="bg-black rounded-xl p-4 h-72 overflow-y-auto mb-4 text-sm space-y-4"
+      ></div>
+
+      <div class="flex gap-3">
+
+        <input
+          id="prompt"
+          type="text"
+          placeholder="Ask CraftNova..."
+          class="flex-1 bg-black border border-border rounded-xl p-3 outline-none"
+        />
+
+        <button
+          onclick="runAI()"
+          class="bg-secondary hover:opacity-90 transition rounded-xl px-5"
+        >
+          Run
+        </button>
+
+      </div>
+
+    </section>
+
+    <!-- PAYMENTS -->
+
+    <section
+      class="bg-card border border-border rounded-2xl p-6"
+    >
+
+      <h2 class="text-xl font-semibold mb-6">
+        Payment Management
+      </h2>
+
+      <div class="overflow-x-auto">
+
+        <table class="w-full text-sm">
+
+          <thead>
+
+            <tr class="border-b border-border text-gray-400">
+
+              <th class="text-left pb-4">
+                Business
+              </th>
+
+              <th class="text-left pb-4">
+                Amount
+              </th>
+
+              <th class="text-left pb-4">
+                Status
+              </th>
+
+              <th class="text-left pb-4">
+                Action
+              </th>
+
+            </tr>
+
+          </thead>
+
+          <tbody id="paymentsTable"></tbody>
+
+        </table>
+
+      </div>
+
+    </section>
+
+    <!-- BOOKINGS -->
+
+    <section
+      class="bg-card border border-border rounded-2xl p-6"
+    >
+
+      <h2 class="text-xl font-semibold mb-6">
+        Bookings
+      </h2>
+
+      <div class="overflow-x-auto">
+
+        <table class="w-full text-sm">
+
+          <thead>
+
+            <tr class="border-b border-border text-gray-400">
+
+              <th class="text-left pb-4">
+                Business
+              </th>
+
+              <th class="text-left pb-4">
+                Date
+              </th>
+
+              <th class="text-left pb-4">
+                Time
+              </th>
+
+              <th class="text-left pb-4">
+                Status
+              </th>
+
+            </tr>
+
+          </thead>
+
+          <tbody id="bookingsTable"></tbody>
+
+        </table>
+
+      </div>
+
+    </section>
+
+    <!-- CRM -->
+
+    <section
+      class="bg-card border border-border rounded-2xl p-6"
+    >
+
+      <h2 class="text-xl font-semibold mb-6">
+        CRM Pipeline
+      </h2>
+
+      <div class="overflow-x-auto">
+
+        <table class="w-full text-sm">
+
+          <thead>
+
+            <tr class="border-b border-border text-gray-400">
+
+              <th class="text-left pb-4">
+                Business
+              </th>
+
+              <th class="text-left pb-4">
+                Email
+              </th>
+
+              <th class="text-left pb-4">
+                Status
+              </th>
+
+              <th class="text-left pb-4">
+                Notes
+              </th>
+
+              <th class="text-left pb-4">
+                Action
+              </th>
+
+            </tr>
+
+          </thead>
+
+          <tbody id="crmTable"></tbody>
+
+        </table>
+
+      </div>
+
+    </section>
+
+    <!-- HISTORY -->
+
+    <section
+      class="bg-card border border-border rounded-2xl p-6"
+    >
+
+      <h2 class="text-xl font-semibold mb-6">
+        Recent Outputs
+      </h2>
+
+      <div
+        id="historyPanel"
+        class="space-y-4"
+      ></div>
+
+    </section>
+
+  </main>
+
+</div>
+<script src="js/config.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/api.js"></script>
+<script src="js/admin.js"></script>
+</body>
+
+</html>

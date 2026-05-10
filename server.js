@@ -402,10 +402,9 @@ Businesses like yours often scale faster with optimized strategy.
           text = `
 Hi ${name},
 
-We can help implement your full marketing strategy.
+We can help implement your marketing strategy.
 
-Book here:
-https://craftrootstech.com/book
+https://craftrootstech.com
 
 — CraftNova AI
 `;
@@ -628,10 +627,10 @@ app.post("/lead-status/:id", auth, async (req, res) => {
         }
       );
 
-      res.json({
-        success: true,
-        lead
-      });
+    res.json({
+      success: true,
+      lead
+    });
 
   } catch (err) {
 
@@ -660,10 +659,10 @@ app.post("/lead-notes/:id", auth, async (req, res) => {
         }
       );
 
-      res.json({
-        success: true,
-        lead
-      });
+    res.json({
+      success: true,
+      lead
+    });
 
   } catch (err) {
 
@@ -680,51 +679,8 @@ app.get("/crm-metrics", auth, async (req, res) => {
     const totalLeads =
       await Lead.countDocuments();
 
-    const newLeads =
-      await Lead.countDocuments({
-        status: "new"
-      });
-
-    const interestedLeads =
-      await Lead.countDocuments({
-        status: "interested"
-      });
-
-    const paidLeads =
-      await Lead.countDocuments({
-        status: "paid"
-      });
-
-    const bookedLeads =
-      await Lead.countDocuments({
-        status: "booked"
-      });
-
-    const clients =
-      await Lead.countDocuments({
-        status: "client"
-      });
-
-    const completed =
-      await Lead.countDocuments({
-        status: "completed"
-      });
-
     res.json({
-
-      totalLeads,
-
-      newLeads,
-
-      interestedLeads,
-
-      paidLeads,
-
-      bookedLeads,
-
-      clients,
-
-      completed
+      totalLeads
     });
 
   } catch (err) {
@@ -735,7 +691,7 @@ app.get("/crm-metrics", auth, async (req, res) => {
   }
 });
 
-// ===== LEAD CAPTURE =====
+// ===== LEADS =====
 
 app.post("/lead", async (req, res) => {
 
@@ -802,6 +758,70 @@ app.get("/payments", auth, async (req, res) => {
   }
 });
 
+app.get("/verify-payment/:id", auth, async (req, res) => {
+
+  try {
+
+    const payment =
+      await Payment.findByIdAndUpdate(
+
+        req.params.id,
+
+        {
+
+          status: "verified",
+
+          verifiedAt:
+            new Date()
+        },
+
+        {
+          new: true
+        }
+      );
+
+    if (!payment) {
+
+      return res.status(404).json({
+        error:
+          "Payment not found"
+      });
+    }
+
+    await safeEmail({
+
+      from:
+        "noreply@craftrootstech.com",
+
+      to: payment.email,
+
+      subject:
+        "Payment Verified",
+
+      text: `
+Hi ${payment.name},
+
+Your payment has been verified.
+
+— CraftNova AI
+`
+    });
+
+    res.json({
+
+      success: true,
+
+      payment
+    });
+
+  } catch (err) {
+
+    res.status(500).json({
+      error: err.message
+    });
+  }
+});
+
 // ===== HISTORY =====
 
 app.get("/history", auth, async (req, res) => {
@@ -816,6 +836,54 @@ app.get("/history", auth, async (req, res) => {
         .limit(20);
 
     res.json(history);
+
+  } catch (err) {
+
+    res.status(500).json({
+      error: err.message
+    });
+  }
+});
+
+// ===== AI EMAIL =====
+
+app.post("/send-email", auth, async (req, res) => {
+
+  try {
+
+    const {
+
+      message,
+      agent
+
+    } = req.body;
+
+    await safeEmail({
+
+      from:
+        "noreply@craftrootstech.com",
+
+      to:
+        "info@craftrootstech.com",
+
+      subject:
+        `CraftNova AI Output (${agent})`,
+
+      text: message
+    });
+
+    await Output.create({
+
+      content: message,
+
+      score: "N/A",
+
+      agent
+    });
+
+    res.json({
+      success: true
+    });
 
   } catch (err) {
 
