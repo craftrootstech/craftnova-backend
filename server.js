@@ -37,6 +37,194 @@ mongoose.connection.once("open", () => {
 });
 
 // ===== MODELS =====
+// ===== LEADS CRM =====
+
+app.get("/leads", async (req, res) => {
+
+  try {
+
+    const leads =
+      await Lead.find()
+        .sort({
+          createdAt: -1
+        });
+
+    res.json(leads);
+
+  } catch (err) {
+
+    console.error(
+      "Leads fetch error:",
+      err
+    );
+
+    res.status(500).json({
+      error: err.message
+    });
+  }
+});
+
+// ===== UPDATE LEAD STATUS =====
+
+app.post("/lead-status/:id", async (req, res) => {
+
+  const {
+    status
+  } = req.body;
+
+  try {
+
+    const lead =
+      await Lead.findByIdAndUpdate(
+
+        req.params.id,
+
+        {
+          status
+        },
+
+        {
+          new: true
+        }
+      );
+
+    if (!lead) {
+
+      return res.status(404).json({
+        error: "Lead not found"
+      });
+    }
+
+    res.json({
+      success: true,
+      lead
+    });
+
+  } catch (err) {
+
+    console.error(
+      "Lead status update error:",
+      err
+    );
+
+    res.status(500).json({
+      error: err.message
+    });
+  }
+});
+
+// ===== UPDATE LEAD NOTES =====
+
+app.post("/lead-notes/:id", async (req, res) => {
+
+  const {
+    notes
+  } = req.body;
+
+  try {
+
+    const lead =
+      await Lead.findByIdAndUpdate(
+
+        req.params.id,
+
+        {
+          notes
+        },
+
+        {
+          new: true
+        }
+      );
+
+    if (!lead) {
+
+      return res.status(404).json({
+        error: "Lead not found"
+      });
+    }
+
+    res.json({
+      success: true,
+      lead
+    });
+
+  } catch (err) {
+
+    console.error(
+      "Lead notes update error:",
+      err
+    );
+
+    res.status(500).json({
+      error: err.message
+    });
+  }
+});
+
+// ===== CRM METRICS =====
+
+app.get("/crm-metrics", async (req, res) => {
+
+  try {
+
+    const totalLeads =
+      await Lead.countDocuments();
+
+    const newLeads =
+      await Lead.countDocuments({
+        status: "new"
+      });
+
+    const interestedLeads =
+      await Lead.countDocuments({
+        status: "interested"
+      });
+
+    const paidLeads =
+      await Lead.countDocuments({
+        status: "paid"
+      });
+
+    const bookedLeads =
+      await Lead.countDocuments({
+        status: "booked"
+      });
+
+    const clients =
+      await Lead.countDocuments({
+        status: "client"
+      });
+
+    const completed =
+      await Lead.countDocuments({
+        status: "completed"
+      });
+
+    res.json({
+
+      totalLeads,
+      newLeads,
+      interestedLeads,
+      paidLeads,
+      bookedLeads,
+      clients,
+      completed
+
+    });
+
+  } catch (err) {
+
+    console.error(
+      "CRM metrics error:",
+      err
+    );
+
+    res.status(500).json({
+      error: err.message
+    });
+  }
+});
 
 const Lead = mongoose.model("Lead", {
 
@@ -50,6 +238,20 @@ const Lead = mongoose.model("Lead", {
   linkedin: String,
 
   goal: String,
+
+  // ===== CRM STATUS =====
+
+  status: {
+    type: String,
+    default: "new"
+  },
+
+  // ===== INTERNAL NOTES =====
+
+  notes: {
+    type: String,
+    default: ""
+  },
 
   createdAt: {
     type: Date,
