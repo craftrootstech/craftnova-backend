@@ -37,32 +37,6 @@ mongoose.connection.once("open", () => {
 });
 
 // ===== MODELS =====
-// ===== LEADS CRM =====
-
-app.get("/leads", async (req, res) => {
-
-  try {
-
-    const leads =
-      await Lead.find()
-        .sort({
-          createdAt: -1
-        });
-
-    res.json(leads);
-
-  } catch (err) {
-
-    console.error(
-      "Leads fetch error:",
-      err
-    );
-
-    res.status(500).json({
-      error: err.message
-    });
-  }
-});
 
 // ===== UPDATE LEAD STATUS =====
 
@@ -336,6 +310,33 @@ const Payment = mongoose.model("Payment", {
   createdAt: {
     type: Date,
     default: Date.now
+  }
+});
+
+// ===== LEADS CRM =====
+
+app.get("/leads", async (req, res) => {
+
+  try {
+
+    const leads =
+      await Lead.find()
+        .sort({
+          createdAt: -1
+        });
+
+    res.json(leads);
+
+  } catch (err) {
+
+    console.error(
+      "Leads fetch error:",
+      err
+    );
+
+    res.status(500).json({
+      error: err.message
+    });
   }
 });
 
