@@ -6,6 +6,8 @@ const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
 const { Resend } = require("resend");
 const OpenAI = require("openai");
+const jwt = require("jsonwebtoken");
+const bcrypt = require("bcryptjs");
 
 const app = express();
 
@@ -208,6 +210,62 @@ const Job = mongoose.model("Job", {
   }
 });
 
+const Admin = mongoose.model("Admin", {
+
+  email: {
+
+    type: String,
+
+    unique: true
+  },
+
+  password: String,
+
+  createdAt: {
+
+    type: Date,
+
+    default: Date.now
+  }
+});
+
+// ===== AUTH =====
+
+function auth(req, res, next) {
+
+  const header =
+    req.headers.authorization;
+
+  if (!header) {
+
+    return res.status(401).json({
+      error: "No token provided"
+    });
+  }
+
+  try {
+
+    const token =
+      header.split(" ")[1];
+
+    const decoded =
+      jwt.verify(
+        token,
+        process.env.JWT_SECRET
+      );
+
+    req.admin = decoded;
+
+    next();
+
+  } catch (err) {
+
+    return res.status(401).json({
+      error: "Invalid token"
+    });
+  }
+}
+
 // ===== HELPERS =====
 
 async function safeEmail(payload) {
@@ -408,9 +466,130 @@ setInterval(
   10000
 );
 
+// ===== ADMIN =====
+
+app.post("/create-admin", async (req, res) => {
+
+  try {
+
+    const {
+
+      email,
+      password
+
+    } = req.body;
+
+    const exists =
+      await Admin.findOne({
+        email
+      });
+
+    if (exists) {
+
+      return res.status(400).json({
+        error:
+          "Admin already exists"
+      });
+    }
+
+    const hashed =
+      await bcrypt.hash(
+        password,
+        10
+      );
+
+    const admin =
+      await Admin.create({
+
+        email,
+
+        password: hashed
+      });
+
+    res.json({
+      success: true,
+      admin
+    });
+
+  } catch (err) {
+
+    res.status(500).json({
+      error: err.message
+    });
+  }
+});
+
+app.post("/admin-login", async (req, res) => {
+
+  try {
+
+    const {
+
+      email,
+      password
+
+    } = req.body;
+
+    const admin =
+      await Admin.findOne({
+        email
+      });
+
+    if (!admin) {
+
+      return res.status(401).json({
+        error:
+          "Invalid credentials"
+      });
+    }
+
+    const valid =
+      await bcrypt.compare(
+        password,
+        admin.password
+      );
+
+    if (!valid) {
+
+      return res.status(401).json({
+        error:
+          "Invalid credentials"
+      });
+    }
+
+    const token =
+      jwt.sign(
+
+        {
+          id: admin._id,
+          email: admin.email
+        },
+
+        process.env.JWT_SECRET,
+
+        {
+          expiresIn: "7d"
+        }
+      );
+
+    res.json({
+
+      success: true,
+
+      token
+    });
+
+  } catch (err) {
+
+    res.status(500).json({
+      error: err.message
+    });
+  }
+});
+
 // ===== CRM =====
 
-app.get("/leads", async (req, res) => {
+app.get("/leads", auth, async (req, res) => {
 
   try {
 
@@ -430,7 +609,7 @@ app.get("/leads", async (req, res) => {
   }
 });
 
-app.post("/lead-status/:id", async (req, res) => {
+app.post("/lead-status/:id", auth, async (req, res) => {
 
   try {
 
@@ -449,10 +628,10 @@ app.post("/lead-status/:id", async (req, res) => {
         }
       );
 
-    res.json({
-      success: true,
-      lead
-    });
+      res.json({
+        success: true,
+        lead
+      });
 
   } catch (err) {
 
@@ -462,7 +641,7 @@ app.post("/lead-status/:id", async (req, res) => {
   }
 });
 
-app.post("/lead-notes/:id", async (req, res) => {
+app.post("/lead-notes/:id", auth, async (req, res) => {
 
   try {
 
@@ -481,10 +660,10 @@ app.post("/lead-notes/:id", async (req, res) => {
         }
       );
 
-    res.json({
-      success: true,
-      lead
-    });
+      res.json({
+        success: true,
+        lead
+      });
 
   } catch (err) {
 
@@ -494,7 +673,7 @@ app.post("/lead-notes/:id", async (req, res) => {
   }
 });
 
-app.get("/crm-metrics", async (req, res) => {
+app.get("/crm-metrics", auth, async (req, res) => {
 
   try {
 
@@ -565,107 +744,13 @@ app.post("/lead", async (req, res) => {
     const lead =
       await Lead.create(req.body);
 
-    const prompt = `
-
-Return EXACT format:
-
-OVERALL SCORE: (0-100)
-
-SUMMARY:
-...
-
-PLATFORM ANALYSIS:
-Instagram:
-Facebook:
-LinkedIn:
-
-KEY PROBLEMS:
-- ...
-
-STRATEGY:
-- ...
-
-ACTION PLAN:
-1. ...
-
-Business: ${lead.business}
-Industry: ${lead.industry || "Not specified"}
-Goal: ${lead.goal || "Not specified"}
-
-`;
-
-    const ai =
-      await openai.chat.completions.create({
-
-        model: "gpt-4o-mini",
-
-        messages: [
-
-          {
-            role: "user",
-            content: prompt
-          }
-        ]
-      });
-
-    const raw =
-      ai.choices[0].message.content;
-
-    const scoreMatch =
-      raw.match(
-        /OVERALL SCORE:\s*(\d{1,3})/i
-      );
-
-    const score =
-      scoreMatch
-        ? scoreMatch[1]
-        : "N/A";
-
-    await Output.create({
-
-      content: raw,
-
-      score,
-
-      agent: "audit"
-    });
-
-    await safeEmail({
-
-      from:
-        "noreply@craftrootstech.com",
-
-      to: lead.email,
-
-      subject:
-        `Your AI Marketing Audit for ${lead.business}`,
-
-      text: `
-Hi ${lead.name},
-
-${raw}
-
-📊 Score: ${score}/100
-
-Book your strategy session:
-https://craftrootstech.com/book
-
-— CraftNova AI
-`
-    });
-
     enqueueFollowUps(lead);
 
     res.json({
-
-      success: true,
-
-      score
+      success: true
     });
 
   } catch (err) {
-
-    console.error(err);
 
     res.status(500).json({
       error: err.message
@@ -675,90 +760,7 @@ https://craftrootstech.com/book
 
 // ===== BOOKINGS =====
 
-app.post("/book", async (req, res) => {
-
-  try {
-
-    const {
-
-      paymentId,
-      date,
-      time
-
-    } = req.body;
-
-    const payment =
-      await Payment.findById(paymentId);
-
-    if (
-      !payment ||
-      payment.status !== "verified"
-    ) {
-
-      return res.status(403).json({
-        error:
-          "Payment not verified"
-      });
-    }
-
-    const existing =
-      await Booking.findOne({
-        date,
-        time
-      });
-
-    if (existing) {
-
-      return res.status(400).json({
-        error:
-          "Slot already booked"
-      });
-    }
-
-    const booking =
-      await Booking.create(req.body);
-
-    await safeEmail({
-
-      from:
-        "noreply@craftrootstech.com",
-
-      to: booking.email,
-
-      subject:
-        "Strategy Session Confirmed",
-
-      text: `
-Hi ${booking.name},
-
-Your booking has been confirmed.
-
-Date:
-${booking.date}
-
-Time:
-${booking.time}
-
-— CraftNova AI
-`
-    });
-
-    res.json({
-
-      success: true,
-
-      booking
-    });
-
-  } catch (err) {
-
-    res.status(500).json({
-      error: err.message
-    });
-  }
-});
-
-app.get("/bookings", async (req, res) => {
+app.get("/bookings", auth, async (req, res) => {
 
   try {
 
@@ -780,121 +782,7 @@ app.get("/bookings", async (req, res) => {
 
 // ===== PAYMENTS =====
 
-app.post("/submit-payment", async (req, res) => {
-
-  try {
-
-    const payment =
-      await Payment.create(req.body);
-
-    await safeEmail({
-
-      from:
-        "noreply@craftrootstech.com",
-
-      to:
-        "info@craftrootstech.com",
-
-      subject:
-        "New Payment Submitted",
-
-      text: `
-Business:
-${payment.business}
-
-Amount:
-N$${payment.amount}
-
-Reference:
-${payment.reference}
-`
-    });
-
-    res.json({
-
-      success: true,
-
-      paymentId:
-        payment._id
-    });
-
-  } catch (err) {
-
-    res.status(500).json({
-      error: err.message
-    });
-  }
-});
-
-app.get("/verify-payment/:id", async (req, res) => {
-
-  try {
-
-    const payment =
-      await Payment.findByIdAndUpdate(
-
-        req.params.id,
-
-        {
-
-          status: "verified",
-
-          verifiedAt:
-            new Date()
-        },
-
-        {
-          new: true
-        }
-      );
-
-    if (!payment) {
-
-      return res.status(404).json({
-        error:
-          "Payment not found"
-      });
-    }
-
-    await safeEmail({
-
-      from:
-        "noreply@craftrootstech.com",
-
-      to: payment.email,
-
-      subject:
-        "Payment Verified",
-
-      text: `
-Hi ${payment.name},
-
-Your payment has been verified.
-
-You may now proceed with booking.
-
-https://craftrootstech.com/book
-
-— CraftNova AI
-`
-    });
-
-    res.json({
-
-      success: true,
-
-      payment
-    });
-
-  } catch (err) {
-
-    res.status(500).json({
-      error: err.message
-    });
-  }
-});
-
-app.get("/payments", async (req, res) => {
+app.get("/payments", auth, async (req, res) => {
 
   try {
 
@@ -916,7 +804,7 @@ app.get("/payments", async (req, res) => {
 
 // ===== HISTORY =====
 
-app.get("/history", async (req, res) => {
+app.get("/history", auth, async (req, res) => {
 
   try {
 
@@ -928,54 +816,6 @@ app.get("/history", async (req, res) => {
         .limit(20);
 
     res.json(history);
-
-  } catch (err) {
-
-    res.status(500).json({
-      error: err.message
-    });
-  }
-});
-
-// ===== SEND EMAIL =====
-
-app.post("/send-email", async (req, res) => {
-
-  try {
-
-    const {
-
-      message,
-      agent
-
-    } = req.body;
-
-    await safeEmail({
-
-      from:
-        "noreply@craftrootstech.com",
-
-      to:
-        "info@craftrootstech.com",
-
-      subject:
-        `CraftNova AI Output (${agent})`,
-
-      text: message
-    });
-
-    await Output.create({
-
-      content: message,
-
-      agent,
-
-      score: "N/A"
-    });
-
-    res.json({
-      success: true
-    });
 
   } catch (err) {
 
