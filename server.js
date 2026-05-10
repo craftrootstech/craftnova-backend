@@ -3,16 +3,24 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
-const { Resend } = require("resend");
 const mongoose = require("mongoose");
+const { Resend } = require("resend");
 const OpenAI = require("openai");
 
 const app = express();
 
-app.use(cors());
-app.use(bodyParser.json());
+// ===== MIDDLEWARE =====
 
-// ===== ENV =====
+app.use(cors());
+
+app.use(bodyParser.json({
+  limit: "10mb"
+}));
+
+// ===== ENVIRONMENT =====
+
+const PORT =
+  process.env.PORT || 3001;
 
 const resend = new Resend(
   process.env.RESEND_API_KEY
@@ -22,30 +30,408 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
+// ===== DATABASE =====
+
+mongoose.connect(
+  process.env.MONGO_URI
+);
+
+mongoose.connection.once("open", () => {
+
+  console.log(
+    "✅ MongoDB Connected"
+  );
+});
+
+mongoose.connection.on("error", err => {
+
+  console.error(
+    "❌ MongoDB Error:",
+    err.message
+  );
+});
+
 // ===== HEALTH =====
 
 app.get("/", (req, res) => {
-  res.send("CraftNova Backend Live 🚀");
-});
 
-// ===== DATABASE =====
-
-mongoose.connect(process.env.MONGO_URI);
-
-mongoose.connection.once("open", () => {
-  console.log("✅ Connected to MongoDB");
+  res.send(
+    "🚀 CraftNova Backend Live"
+  );
 });
 
 // ===== MODELS =====
 
-// ===== UPDATE LEAD STATUS =====
+const Lead = mongoose.model("Lead", {
+
+  name: String,
+
+  email: String,
+
+  business: String,
+
+  industry: String,
+
+  facebook: String,
+
+  instagram: String,
+
+  linkedin: String,
+
+  goal: String,
+
+  status: {
+
+    type: String,
+
+    default: "new"
+  },
+
+  notes: {
+
+    type: String,
+
+    default: ""
+  },
+
+  createdAt: {
+
+    type: Date,
+
+    default: Date.now
+  }
+});
+
+const Output = mongoose.model("Output", {
+
+  content: String,
+
+  score: String,
+
+  agent: String,
+
+  createdAt: {
+
+    type: Date,
+
+    default: Date.now
+  }
+});
+
+const Booking = mongoose.model("Booking", {
+
+  name: String,
+
+  email: String,
+
+  business: String,
+
+  date: String,
+
+  time: String,
+
+  status: {
+
+    type: String,
+
+    default: "scheduled"
+  },
+
+  createdAt: {
+
+    type: Date,
+
+    default: Date.now
+  }
+});
+
+const Payment = mongoose.model("Payment", {
+
+  name: String,
+
+  email: String,
+
+  business: String,
+
+  amount: Number,
+
+  reference: String,
+
+  proofUrl: String,
+
+  status: {
+
+    type: String,
+
+    default: "pending"
+  },
+
+  verifiedAt: Date,
+
+  createdAt: {
+
+    type: Date,
+
+    default: Date.now
+  }
+});
+
+const Job = mongoose.model("Job", {
+
+  type: String,
+
+  payload: Object,
+
+  runAt: Date,
+
+  status: {
+
+    type: String,
+
+    default: "pending"
+  },
+
+  attempts: {
+
+    type: Number,
+
+    default: 0
+  },
+
+  lastError: String,
+
+  createdAt: {
+
+    type: Date,
+
+    default: Date.now
+  }
+});
+
+// ===== HELPERS =====
+
+async function safeEmail(payload) {
+
+  try {
+
+    await resend.emails.send(payload);
+
+  } catch (err) {
+
+    console.error(
+      "Email Error:",
+      err.message
+    );
+  }
+}
+
+function enqueueFollowUps(lead) {
+
+  const now = Date.now();
+
+  const jobs = [
+
+    {
+      step: 1,
+      delay: 1 * 24 * 60 * 60 * 1000
+    },
+
+    {
+      step: 2,
+      delay: 3 * 24 * 60 * 60 * 1000
+    },
+
+    {
+      step: 3,
+      delay: 5 * 24 * 60 * 60 * 1000
+    }
+  ];
+
+  jobs.forEach(job => {
+
+    Job.create({
+
+      type: "followup",
+
+      payload: {
+
+        name: lead.name,
+
+        email: lead.email,
+
+        business: lead.business,
+
+        step: job.step
+      },
+
+      runAt: new Date(
+        now + job.delay
+      )
+    });
+  });
+}
+
+// ===== WORKER =====
+
+async function processJobs() {
+
+  try {
+
+    const jobs =
+      await Job.find({
+
+        status: "pending",
+
+        runAt: {
+          $lte: new Date()
+        }
+
+      }).limit(5);
+
+    for (const job of jobs) {
+
+      try {
+
+        job.status = "processing";
+
+        await job.save();
+
+        const {
+
+          name,
+          email,
+          business,
+          step
+
+        } = job.payload;
+
+        let subject = "";
+        let text = "";
+
+        if (step === 1) {
+
+          subject =
+            "Quick follow-up on your audit";
+
+          text = `
+Hi ${name},
+
+Did you review your audit for ${business}?
+
+— CraftNova AI
+`;
+        }
+
+        if (step === 2) {
+
+          subject =
+            `Growth opportunities for ${business}`;
+
+          text = `
+Hi ${name},
+
+Businesses like yours often scale faster with optimized strategy.
+
+— CraftNova AI
+`;
+        }
+
+        if (step === 3) {
+
+          subject =
+            "Ready to improve your marketing?";
+
+          text = `
+Hi ${name},
+
+We can help implement your full marketing strategy.
+
+Book here:
+https://craftrootstech.com/book
+
+— CraftNova AI
+`;
+        }
+
+        await safeEmail({
+
+          from:
+            "noreply@craftrootstech.com",
+
+          to: email,
+
+          subject,
+
+          text
+        });
+
+        job.status = "done";
+
+        await job.save();
+
+      } catch (err) {
+
+        job.attempts += 1;
+
+        job.lastError =
+          err.message;
+
+        if (job.attempts < 3) {
+
+          job.status = "pending";
+
+          job.runAt =
+            new Date(
+              Date.now() + 60000
+            );
+
+        } else {
+
+          job.status = "failed";
+        }
+
+        await job.save();
+      }
+    }
+
+  } catch (err) {
+
+    console.error(
+      "Worker Error:",
+      err.message
+    );
+  }
+}
+
+setInterval(
+  processJobs,
+  10000
+);
+
+// ===== CRM =====
+
+app.get("/leads", async (req, res) => {
+
+  try {
+
+    const leads =
+      await Lead.find()
+        .sort({
+          createdAt: -1
+        });
+
+    res.json(leads);
+
+  } catch (err) {
+
+    res.status(500).json({
+      error: err.message
+    });
+  }
+});
 
 app.post("/lead-status/:id", async (req, res) => {
 
-  const {
-    status
-  } = req.body;
-
   try {
 
     const lead =
@@ -54,20 +440,14 @@ app.post("/lead-status/:id", async (req, res) => {
         req.params.id,
 
         {
-          status
+          status:
+            req.body.status
         },
 
         {
           new: true
         }
       );
-
-    if (!lead) {
-
-      return res.status(404).json({
-        error: "Lead not found"
-      });
-    }
 
     res.json({
       success: true,
@@ -76,25 +456,14 @@ app.post("/lead-status/:id", async (req, res) => {
 
   } catch (err) {
 
-    console.error(
-      "Lead status update error:",
-      err
-    );
-
     res.status(500).json({
       error: err.message
     });
   }
 });
-
-// ===== UPDATE LEAD NOTES =====
 
 app.post("/lead-notes/:id", async (req, res) => {
 
-  const {
-    notes
-  } = req.body;
-
   try {
 
     const lead =
@@ -103,20 +472,14 @@ app.post("/lead-notes/:id", async (req, res) => {
         req.params.id,
 
         {
-          notes
+          notes:
+            req.body.notes
         },
 
         {
           new: true
         }
       );
-
-    if (!lead) {
-
-      return res.status(404).json({
-        error: "Lead not found"
-      });
-    }
 
     res.json({
       success: true,
@@ -125,18 +488,11 @@ app.post("/lead-notes/:id", async (req, res) => {
 
   } catch (err) {
 
-    console.error(
-      "Lead notes update error:",
-      err
-    );
-
     res.status(500).json({
       error: err.message
     });
   }
 });
-
-// ===== CRM METRICS =====
 
 app.get("/crm-metrics", async (req, res) => {
 
@@ -178,21 +534,21 @@ app.get("/crm-metrics", async (req, res) => {
     res.json({
 
       totalLeads,
+
       newLeads,
+
       interestedLeads,
+
       paidLeads,
+
       bookedLeads,
+
       clients,
+
       completed
-
     });
 
   } catch (err) {
-
-    console.error(
-      "CRM metrics error:",
-      err
-    );
 
     res.status(500).json({
       error: err.message
@@ -200,357 +556,17 @@ app.get("/crm-metrics", async (req, res) => {
   }
 });
 
-const Lead = mongoose.model("Lead", {
-
-  name: String,
-  email: String,
-  business: String,
-  industry: String,
-
-  facebook: String,
-  instagram: String,
-  linkedin: String,
-
-  goal: String,
-
-  // ===== CRM STATUS =====
-
-  status: {
-    type: String,
-    default: "new"
-  },
-
-  // ===== INTERNAL NOTES =====
-
-  notes: {
-    type: String,
-    default: ""
-  },
-
-  createdAt: {
-    type: Date,
-    default: Date.now
-  }
-});
-
-const Output = mongoose.model("Output", {
-
-  content: String,
-  score: String,
-  agent: String,
-
-  createdAt: {
-    type: Date,
-    default: Date.now
-  }
-});
-
-const Job = mongoose.model("Job", {
-
-  type: String,
-  payload: Object,
-  runAt: Date,
-
-  status: {
-    type: String,
-    default: "pending"
-  },
-
-  attempts: {
-    type: Number,
-    default: 0
-  },
-
-  lastError: String,
-
-  createdAt: {
-    type: Date,
-    default: Date.now
-  }
-});
-
-const Booking = mongoose.model("Booking", {
-
-  name: String,
-  email: String,
-  business: String,
-
-  date: String,
-  time: String,
-
-  status: {
-    type: String,
-    default: "scheduled"
-  },
-
-  createdAt: {
-    type: Date,
-    default: Date.now
-  }
-});
-
-const Payment = mongoose.model("Payment", {
-
-  name: String,
-  email: String,
-  business: String,
-
-  amount: Number,
-
-  reference: String,
-  proofUrl: String,
-
-  status: {
-    type: String,
-    default: "pending"
-  },
-
-  verifiedAt: Date,
-
-  createdAt: {
-    type: Date,
-    default: Date.now
-  }
-});
-
-// ===== LEADS CRM =====
-
-app.get("/leads", async (req, res) => {
-
-  try {
-
-    const leads =
-      await Lead.find()
-        .sort({
-          createdAt: -1
-        });
-
-    res.json(leads);
-
-  } catch (err) {
-
-    console.error(
-      "Leads fetch error:",
-      err
-    );
-
-    res.status(500).json({
-      error: err.message
-    });
-  }
-});
-
-// ===== FOLLOW-UP QUEUE =====
-
-function enqueueFollowUps(lead) {
-
-  const now = Date.now();
-
-  const jobs = [
-
-    {
-      step: 1,
-      delay: 24 * 60 * 60 * 1000
-    },
-
-    {
-      step: 2,
-      delay: 3 * 24 * 60 * 60 * 1000
-    },
-
-    {
-      step: 3,
-      delay: 5 * 24 * 60 * 60 * 1000
-    }
-  ];
-
-  jobs.forEach(j => {
-
-    Job.create({
-
-      type: "followup",
-
-      payload: {
-        name: lead.name,
-        email: lead.email,
-        business: lead.business,
-        step: j.step
-      },
-
-      runAt: new Date(now + j.delay)
-    });
-
-  });
-}
-
-// ===== WORKER =====
-
-async function processJobs() {
-
-  try {
-
-    const jobs = await Job.find({
-
-      status: "pending",
-
-      runAt: {
-        $lte: new Date()
-      }
-
-    }).limit(5);
-
-    for (const job of jobs) {
-
-      try {
-
-        job.status = "processing";
-        await job.save();
-
-        const {
-          name,
-          email,
-          business,
-          step
-        } = job.payload;
-
-        let subject = "";
-        let text = "";
-
-        if (step === 1) {
-
-          subject =
-            "Quick follow-up on your audit";
-
-          text = `
-Hi ${name},
-
-Did you review your audit for ${business}?
-
-— CraftNova AI
-by Craftroots Technologies
-`;
-        }
-
-        if (step === 2) {
-
-          subject =
-            `How businesses like ${business} grow faster`;
-
-          text = `
-Hi ${name},
-
-Businesses like yours typically grow 2–3x after improving strategy.
-
-— CraftNova AI
-by Craftroots Technologies
-`;
-        }
-
-        if (step === 3) {
-
-          subject =
-            "Let’s improve your marketing results";
-
-          text = `
-Hi ${name},
-
-We can implement your full strategy and drive results.
-
-Secure your strategy session:
-https://craftrootstech.com/pay
-
-— CraftNova AI
-by Craftroots Technologies
-`;
-        }
-
-        try {
-
-          await resend.emails.send({
-
-            from:
-              "noreply@craftrootstech.com",
-
-            to: email,
-
-            subject,
-            text
-          });
-
-        } catch (emailErr) {
-
-          console.error(
-            "Follow-up email failed:",
-            emailErr.message
-          );
-        }
-
-        job.status = "done";
-        await job.save();
-
-      } catch (err) {
-
-        job.attempts += 1;
-        job.lastError = err.message;
-
-        if (job.attempts < 3) {
-
-          job.status = "pending";
-
-          job.runAt = new Date(
-            Date.now() + 60000
-          );
-
-        } else {
-
-          job.status = "failed";
-        }
-
-        await job.save();
-      }
-    }
-
-  } catch (err) {
-
-    console.error(
-      "Worker error:",
-      err.message
-    );
-  }
-}
-
-setInterval(processJobs, 10000);
-
-// ===== LEAD ROUTE =====
+// ===== LEAD CAPTURE =====
 
 app.post("/lead", async (req, res) => {
 
-  const {
-    name,
-    email,
-    business,
-    industry,
-    facebook,
-    instagram,
-    linkedin,
-    goal
-  } = req.body;
-
   try {
 
-    const lead = await Lead.create({
-
-      name,
-      email,
-      business,
-      industry,
-      facebook,
-      instagram,
-      linkedin,
-      goal
-    });
+    const lead =
+      await Lead.create(req.body);
 
     const prompt = `
+
 Return EXACT format:
 
 OVERALL SCORE: (0-100)
@@ -572,9 +588,10 @@ STRATEGY:
 ACTION PLAN:
 1. ...
 
-Business: ${business}
-Industry: ${industry || "Not specified"}
-Goal: ${goal || "Not specified"}
+Business: ${lead.business}
+Industry: ${lead.industry || "Not specified"}
+Goal: ${lead.goal || "Not specified"}
+
 `;
 
     const ai =
@@ -583,6 +600,7 @@ Goal: ${goal || "Not specified"}
         model: "gpt-4o-mini",
 
         messages: [
+
           {
             role: "user",
             content: prompt
@@ -606,49 +624,42 @@ Goal: ${goal || "Not specified"}
     await Output.create({
 
       content: raw,
+
       score,
+
       agent: "audit"
     });
 
-    try {
+    await safeEmail({
 
-      await resend.emails.send({
+      from:
+        "noreply@craftrootstech.com",
 
-        from:
-          "noreply@craftrootstech.com",
+      to: lead.email,
 
-        to: email,
+      subject:
+        `Your AI Marketing Audit for ${lead.business}`,
 
-        subject:
-          `Your AI Marketing Audit for ${business}`,
-
-        text: `
-Hi ${name},
+      text: `
+Hi ${lead.name},
 
 ${raw}
 
 📊 Score: ${score}/100
 
-Secure your strategy session:
-https://craftrootstech.com/pay
+Book your strategy session:
+https://craftrootstech.com/book
 
 — CraftNova AI
-by Craftroots Technologies
 `
-      });
-
-    } catch (emailErr) {
-
-      console.error(
-        "Lead email failed:",
-        emailErr.message
-      );
-    }
+    });
 
     enqueueFollowUps(lead);
 
     res.json({
+
       success: true,
+
       score
     });
 
@@ -662,20 +673,19 @@ by Craftroots Technologies
   }
 });
 
-// ===== BOOK SESSION =====
+// ===== BOOKINGS =====
 
 app.post("/book", async (req, res) => {
 
-  const {
-    name,
-    email,
-    business,
-    date,
-    time,
-    paymentId
-  } = req.body;
-
   try {
+
+    const {
+
+      paymentId,
+      date,
+      time
+
+    } = req.body;
 
     const payment =
       await Payment.findById(paymentId);
@@ -687,89 +697,66 @@ app.post("/book", async (req, res) => {
 
       return res.status(403).json({
         error:
-          "Payment not verified yet"
+          "Payment not verified"
       });
     }
 
-    const exists =
+    const existing =
       await Booking.findOne({
         date,
         time
       });
 
-    if (exists) {
+    if (existing) {
 
       return res.status(400).json({
         error:
-          "Slot already taken"
+          "Slot already booked"
       });
     }
 
     const booking =
-      await Booking.create({
+      await Booking.create(req.body);
 
-        name,
-        email,
-        business,
-        date,
-        time
-      });
+    await safeEmail({
 
-    try {
+      from:
+        "noreply@craftrootstech.com",
 
-      await resend.emails.send({
+      to: booking.email,
 
-        from:
-          "noreply@craftrootstech.com",
+      subject:
+        "Strategy Session Confirmed",
 
-        to: email,
-
-        subject:
-          "Strategy Session Confirmed",
-
-        text: `
-Hi ${name},
+      text: `
+Hi ${booking.name},
 
 Your booking has been confirmed.
 
-Business:
-${business}
-
 Date:
-${date}
+${booking.date}
 
 Time:
-${time}
+${booking.time}
 
 — CraftNova AI
-by Craftroots Technologies
 `
-      });
-
-    } catch (emailErr) {
-
-      console.error(
-        "Booking email failed:",
-        emailErr.message
-      );
-    }
+    });
 
     res.json({
+
       success: true,
+
       booking
     });
 
   } catch (err) {
-
-    console.error(err);
 
     res.status(500).json({
       error: err.message
     });
   }
 });
-
-// ===== BOOKINGS =====
 
 app.get("/bookings", async (req, res) => {
 
@@ -791,100 +778,53 @@ app.get("/bookings", async (req, res) => {
   }
 });
 
-// ===== SUBMIT PAYMENT =====
+// ===== PAYMENTS =====
 
 app.post("/submit-payment", async (req, res) => {
-
-  const {
-    name,
-    email,
-    business,
-    amount,
-    reference,
-    proofUrl
-  } = req.body;
 
   try {
 
     const payment =
-      await Payment.create({
+      await Payment.create(req.body);
 
-        name,
-        email,
-        business,
-        amount,
-        reference,
-        proofUrl
-      });
+    await safeEmail({
 
-    console.log(
-      "✅ Payment saved:",
-      payment._id
-    );
+      from:
+        "noreply@craftrootstech.com",
 
-    try {
+      to:
+        "info@craftrootstech.com",
 
-      await resend.emails.send({
+      subject:
+        "New Payment Submitted",
 
-        from:
-          "noreply@craftrootstech.com",
-
-        to:
-          "info@craftrootstech.com",
-
-        subject:
-          "New Payment Submitted",
-
-        text: `
-New payment submitted.
-
-Name:
-${name}
-
-Email:
-${email}
-
+      text: `
 Business:
-${business}
+${payment.business}
 
 Amount:
-N$${amount}
+N$${payment.amount}
 
 Reference:
-${reference}
-
-Proof:
-${proofUrl}
+${payment.reference}
 `
-      });
-
-    } catch (emailErr) {
-
-      console.error(
-        "Payment email failed:",
-        emailErr.message
-      );
-    }
+    });
 
     res.json({
+
       success: true,
-      paymentId: payment._id
+
+      paymentId:
+        payment._id
     });
 
   } catch (err) {
-
-    console.error(
-      "❌ PAYMENT ERROR:",
-      err
-    );
 
     res.status(500).json({
       error: err.message
     });
   }
 });
-
-// ===== VERIFY PAYMENT =====
 
 app.get("/verify-payment/:id", async (req, res) => {
 
@@ -896,8 +836,11 @@ app.get("/verify-payment/:id", async (req, res) => {
         req.params.id,
 
         {
+
           status: "verified",
-          verifiedAt: new Date()
+
+          verifiedAt:
+            new Date()
         },
 
         {
@@ -913,63 +856,43 @@ app.get("/verify-payment/:id", async (req, res) => {
       });
     }
 
-    try {
+    await safeEmail({
 
-      await resend.emails.send({
+      from:
+        "noreply@craftrootstech.com",
 
-        from:
-          "noreply@craftrootstech.com",
+      to: payment.email,
 
-        to: payment.email,
+      subject:
+        "Payment Verified",
 
-        subject:
-          "Payment Verified",
-
-        text: `
+      text: `
 Hi ${payment.name},
 
-Your payment has been verified successfully.
+Your payment has been verified.
 
-You may now book your strategy session.
+You may now proceed with booking.
 
-Booking link:
 https://craftrootstech.com/book
 
-Payment ID:
-${payment._id}
-
 — CraftNova AI
-by Craftroots Technologies
 `
-      });
-
-    } catch (emailErr) {
-
-      console.error(
-        "Verification email failed:",
-        emailErr.message
-      );
-    }
+    });
 
     res.json({
+
       success: true,
+
       payment
     });
 
   } catch (err) {
-
-    console.error(
-      "Verify payment error:",
-      err
-    );
 
     res.status(500).json({
       error: err.message
     });
   }
 });
-
-// ===== PAYMENTS =====
 
 app.get("/payments", async (req, res) => {
 
@@ -997,14 +920,14 @@ app.get("/history", async (req, res) => {
 
   try {
 
-    const outputs =
+    const history =
       await Output.find()
         .sort({
           createdAt: -1
         })
         .limit(20);
 
-    res.json(outputs);
+    res.json(history);
 
   } catch (err) {
 
@@ -1018,41 +941,35 @@ app.get("/history", async (req, res) => {
 
 app.post("/send-email", async (req, res) => {
 
-  const {
-    message,
-    agent
-  } = req.body;
-
   try {
 
-    try {
+    const {
 
-      await resend.emails.send({
+      message,
+      agent
 
-        from:
-          "noreply@craftrootstech.com",
+    } = req.body;
 
-        to:
-          "info@craftrootstech.com",
+    await safeEmail({
 
-        subject:
-          `CraftNova AI Output (${agent})`,
+      from:
+        "noreply@craftrootstech.com",
 
-        text: message
-      });
+      to:
+        "info@craftrootstech.com",
 
-    } catch (emailErr) {
+      subject:
+        `CraftNova AI Output (${agent})`,
 
-      console.error(
-        "Send-email route failed:",
-        emailErr.message
-      );
-    }
+      text: message
+    });
 
     await Output.create({
 
       content: message,
+
       agent,
+
       score: "N/A"
     });
 
@@ -1062,8 +979,6 @@ app.post("/send-email", async (req, res) => {
 
   } catch (err) {
 
-    console.error(err);
-
     res.status(500).json({
       error: err.message
     });
@@ -1072,12 +987,9 @@ app.post("/send-email", async (req, res) => {
 
 // ===== SERVER =====
 
-const PORT =
-  process.env.PORT || 3001;
-
 app.listen(PORT, () => {
 
   console.log(
-    "🚀 CraftNova running on port " + PORT
+    `🚀 CraftNova running on port ${PORT}`
   );
 });
