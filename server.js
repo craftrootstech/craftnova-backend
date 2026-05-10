@@ -106,7 +106,16 @@ const Lead = mongoose.model("Lead", {
 
 const Output = mongoose.model("Output", {
 
-  clientId: mongoose.Schema.Types.ObjectId,
+  clientId: {
+
+    type: mongoose.Schema.Types.ObjectId,
+
+    ref: "Client"
+  },
+
+  clientEmail: String,
+
+  clientBusiness: String,
 
   content: String,
 
@@ -124,7 +133,16 @@ const Output = mongoose.model("Output", {
 
 const Booking = mongoose.model("Booking", {
 
-  clientId: mongoose.Schema.Types.ObjectId,
+  clientId: {
+
+    type: mongoose.Schema.Types.ObjectId,
+
+    ref: "Client"
+  },
+
+  clientEmail: String,
+
+  clientBusiness: String,
 
   name: String,
 
@@ -153,7 +171,16 @@ const Booking = mongoose.model("Booking", {
 
 const Payment = mongoose.model("Payment", {
 
-  clientId: mongoose.Schema.Types.ObjectId,
+  clientId: {
+
+    type: mongoose.Schema.Types.ObjectId,
+
+    ref: "Client"
+  },
+
+  clientEmail: String,
+
+  clientBusiness: String,
 
   name: String,
 
@@ -379,13 +406,12 @@ app.post("/create-admin", async (req, res) => {
         10
       );
 
-    const admin =
-      await Admin.create({
+    await Admin.create({
 
-        email,
+      email,
 
-        password: hashed
-      });
+      password: hashed
+    });
 
     res.json({
       success: true
@@ -442,6 +468,7 @@ app.post("/admin-login", async (req, res) => {
 
         {
           id: admin._id,
+          email: admin.email,
           role: "admin"
         },
 
@@ -512,7 +539,9 @@ app.post("/client-signup", async (req, res) => {
       });
 
     res.json({
+
       success: true,
+
       client
     });
 
@@ -571,6 +600,8 @@ app.post("/client-login", async (req, res) => {
 
           email: client.email,
 
+          business: client.business,
+
           role: "client"
         },
 
@@ -612,6 +643,8 @@ app.get("/client-dashboard", clientAuth, async (req, res) => {
 
         clientId:
           req.client.id
+      }).sort({
+        createdAt: -1
       });
 
     const bookings =
@@ -619,6 +652,8 @@ app.get("/client-dashboard", clientAuth, async (req, res) => {
 
         clientId:
           req.client.id
+      }).sort({
+        createdAt: -1
       });
 
     const history =
@@ -626,6 +661,8 @@ app.get("/client-dashboard", clientAuth, async (req, res) => {
 
         clientId:
           req.client.id
+      }).sort({
+        createdAt: -1
       });
 
     res.json({
@@ -678,7 +715,9 @@ app.post("/lead-status/:id", auth, async (req, res) => {
     );
 
   res.json({
+
     success: true,
+
     lead
   });
 });
@@ -701,7 +740,9 @@ app.post("/lead-notes/:id", auth, async (req, res) => {
     );
 
   res.json({
+
     success: true,
+
     lead
   });
 });
@@ -724,9 +765,52 @@ app.post("/lead", async (req, res) => {
     await Lead.create(req.body);
 
   res.json({
+
     success: true,
+
     lead
   });
+});
+
+// ===== CLIENT BOOKINGS =====
+
+app.post("/client-booking", clientAuth, async (req, res) => {
+
+  try {
+
+    const client =
+      await Client.findById(
+        req.client.id
+      );
+
+    const booking =
+      await Booking.create({
+
+        clientId:
+          client._id,
+
+        clientEmail:
+          client.email,
+
+        clientBusiness:
+          client.business,
+
+        ...req.body
+      });
+
+    res.json({
+
+      success: true,
+
+      booking
+    });
+
+  } catch (err) {
+
+    res.status(500).json({
+      error: err.message
+    });
+  }
 });
 
 // ===== BOOKINGS =====
@@ -740,6 +824,47 @@ app.get("/bookings", auth, async (req, res) => {
       });
 
   res.json(bookings);
+});
+
+// ===== CLIENT PAYMENTS =====
+
+app.post("/client-payment", clientAuth, async (req, res) => {
+
+  try {
+
+    const client =
+      await Client.findById(
+        req.client.id
+      );
+
+    const payment =
+      await Payment.create({
+
+        clientId:
+          client._id,
+
+        clientEmail:
+          client.email,
+
+        clientBusiness:
+          client.business,
+
+        ...req.body
+      });
+
+    res.json({
+
+      success: true,
+
+      payment
+    });
+
+  } catch (err) {
+
+    res.status(500).json({
+      error: err.message
+    });
+  }
 });
 
 // ===== PAYMENTS =====
@@ -825,6 +950,15 @@ app.post("/send-email", auth, async (req, res) => {
     });
 
     await Output.create({
+
+      clientId:
+        req.admin?.id || null,
+
+      clientEmail:
+        req.admin?.email || null,
+
+      clientBusiness:
+        "CraftNova",
 
       content: message,
 

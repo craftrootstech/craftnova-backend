@@ -220,6 +220,8 @@
         Client Dashboard
       </h2>
 
+      <!-- METRICS -->
+
       <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
 
         <div class="bg-card border border-border rounded-2xl p-6">
@@ -264,6 +266,108 @@
           >
             0
           </h3>
+
+        </div>
+
+      </div>
+
+      <!-- CLIENT ACTIONS -->
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+
+        <!-- BOOKING -->
+
+        <div class="bg-card border border-border rounded-2xl p-6">
+
+          <h3 class="text-xl font-bold mb-4">
+            Create Booking
+          </h3>
+
+          <div class="space-y-3">
+
+            <input
+              id="bookingDate"
+              type="date"
+              class="w-full bg-black border border-border rounded-xl p-3"
+            />
+
+            <input
+              id="bookingTime"
+              type="time"
+              class="w-full bg-black border border-border rounded-xl p-3"
+            />
+
+            <button
+              onclick="submitBooking()"
+              class="w-full bg-primary py-3 rounded-xl"
+            >
+              Submit Booking
+            </button>
+
+          </div>
+
+        </div>
+
+        <!-- PAYMENT -->
+
+        <div class="bg-card border border-border rounded-2xl p-6">
+
+          <h3 class="text-xl font-bold mb-4">
+            Submit Payment
+          </h3>
+
+          <div class="space-y-3">
+
+            <input
+              id="paymentAmount"
+              type="number"
+              placeholder="Amount"
+              class="w-full bg-black border border-border rounded-xl p-3"
+            />
+
+            <input
+              id="paymentReference"
+              type="text"
+              placeholder="Reference"
+              class="w-full bg-black border border-border rounded-xl p-3"
+            />
+
+            <button
+              onclick="submitPayment()"
+              class="w-full bg-primary py-3 rounded-xl"
+            >
+              Submit Payment
+            </button>
+
+          </div>
+
+        </div>
+
+        <!-- AI -->
+
+        <div class="bg-card border border-border rounded-2xl p-6">
+
+          <h3 class="text-xl font-bold mb-4">
+            AI Request
+          </h3>
+
+          <div class="space-y-3">
+
+            <textarea
+              id="clientAIRequest"
+              rows="4"
+              placeholder="Describe your request..."
+              class="w-full bg-black border border-border rounded-xl p-3"
+            ></textarea>
+
+            <button
+              onclick="submitAIRequest()"
+              class="w-full bg-primary py-3 rounded-xl"
+            >
+              Run AI
+            </button>
+
+          </div>
 
         </div>
 
