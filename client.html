@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+  <meta charset="UTF-8" />
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  />
+
+  <title>CraftNova Client Portal</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <script>
+
+    tailwind.config = {
+
+      theme: {
+
+        extend: {
+
+          colors: {
+
+            primary: "#3B82F6",
+            bg: "#0B0F1A",
+            card: "#111827",
+            border: "#1F2937"
+          }
+        }
+      }
+    };
+
+  </script>
+
+</head>
+
+<body class="bg-bg text-white min-h-screen">
+
+<div class="flex">
+
+  <!-- SIDEBAR -->
+
+  <aside class="w-72 min-h-screen bg-card border-r border-border p-6">
+
+    <h1 class="text-3xl font-bold mb-8">
+      🚀 CraftNova
+    </h1>
+
+    <nav class="space-y-4 text-sm">
+
+      <button
+        onclick="showSection('dashboard')"
+        class="block w-full text-left hover:text-primary"
+      >
+        Dashboard
+      </button>
+
+      <button
+        onclick="showSection('payments')"
+        class="block w-full text-left hover:text-primary"
+      >
+        Payments
+      </button>
+
+      <button
+        onclick="showSection('bookings')"
+        class="block w-full text-left hover:text-primary"
+      >
+        Bookings
+      </button>
+
+      <button
+        onclick="showSection('history')"
+        class="block w-full text-left hover:text-primary"
+      >
+        AI Reports
+      </button>
+
+      <button
+        onclick="logoutClient()"
+        class="block w-full text-left text-red-400 hover:text-red-300"
+      >
+        Logout
+      </button>
+
+    </nav>
+
+  </aside>
+
+  <!-- MAIN -->
+
+  <main class="flex-1 p-8">
+
+    <!-- LOGIN -->
+
+    <section id="loginSection">
+
+      <div class="max-w-md mx-auto bg-card border border-border rounded-2xl p-8">
+
+        <h2 class="text-3xl font-bold mb-2">
+          Client Login
+        </h2>
+
+        <p class="text-gray-400 mb-6">
+          Access your portal
+        </p>
+
+        <div class="space-y-4">
+
+          <input
+            id="clientEmail"
+            type="email"
+            placeholder="Email"
+            class="w-full bg-black border border-border rounded-xl p-3"
+          />
+
+          <input
+            id="clientPassword"
+            type="password"
+            placeholder="Password"
+            class="w-full bg-black border border-border rounded-xl p-3"
+          />
+
+          <button
+            onclick="clientLogin()"
+            class="w-full bg-primary py-3 rounded-xl font-semibold"
+          >
+            Login
+          </button>
+
+          <button
+            onclick="showSignup()"
+            class="w-full border border-border py-3 rounded-xl"
+          >
+            Create Account
+          </button>
+
+          <p
+            id="clientError"
+            class="text-red-400 text-sm"
+          ></p>
+
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- SIGNUP -->
+
+    <section
+      id="signupSection"
+      class="hidden"
+    >
+
+      <div class="max-w-md mx-auto bg-card border border-border rounded-2xl p-8">
+
+        <h2 class="text-3xl font-bold mb-2">
+          Client Signup
+        </h2>
+
+        <p class="text-gray-400 mb-6">
+          Create your portal account
+        </p>
+
+        <div class="space-y-4">
+
+          <input
+            id="signupName"
+            type="text"
+            placeholder="Full Name"
+            class="w-full bg-black border border-border rounded-xl p-3"
+          />
+
+          <input
+            id="signupBusiness"
+            type="text"
+            placeholder="Business"
+            class="w-full bg-black border border-border rounded-xl p-3"
+          />
+
+          <input
+            id="signupEmail"
+            type="email"
+            placeholder="Email"
+            class="w-full bg-black border border-border rounded-xl p-3"
+          />
+
+          <input
+            id="signupPassword"
+            type="password"
+            placeholder="Password"
+            class="w-full bg-black border border-border rounded-xl p-3"
+          />
+
+          <button
+            onclick="clientSignup()"
+            class="w-full bg-primary py-3 rounded-xl font-semibold"
+          >
+            Create Account
+          </button>
+
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- DASHBOARD -->
+
+    <section
+      id="dashboardSection"
+      class="hidden"
+    >
+
+      <h2 class="text-4xl font-bold mb-8">
+        Client Dashboard
+      </h2>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+
+        <div class="bg-card border border-border rounded-2xl p-6">
+
+          <p class="text-gray-400 text-sm mb-2">
+            Payments
+          </p>
+
+          <h3
+            id="clientPaymentsMetric"
+            class="text-3xl font-bold"
+          >
+            0
+          </h3>
+
+        </div>
+
+        <div class="bg-card border border-border rounded-2xl p-6">
+
+          <p class="text-gray-400 text-sm mb-2">
+            Bookings
+          </p>
+
+          <h3
+            id="clientBookingsMetric"
+            class="text-3xl font-bold"
+          >
+            0
+          </h3>
+
+        </div>
+
+        <div class="bg-card border border-border rounded-2xl p-6">
+
+          <p class="text-gray-400 text-sm mb-2">
+            AI Reports
+          </p>
+
+          <h3
+            id="clientReportsMetric"
+            class="text-3xl font-bold"
+          >
+            0
+          </h3>
+
+        </div>
+
+      </div>
+
+      <!-- PAYMENTS -->
+
+      <div
+        id="paymentsSection"
+        class="hidden"
+      >
+
+        <h3 class="text-2xl font-bold mb-4">
+          Payments
+        </h3>
+
+        <div
+          id="clientPayments"
+          class="space-y-4"
+        ></div>
+
+      </div>
+
+      <!-- BOOKINGS -->
+
+      <div
+        id="bookingsSection"
+        class="hidden"
+      >
+
+        <h3 class="text-2xl font-bold mb-4">
+          Bookings
+        </h3>
+
+        <div
+          id="clientBookings"
+          class="space-y-4"
+        ></div>
+
+      </div>
+
+      <!-- HISTORY -->
+
+      <div
+        id="historySection"
+        class="hidden"
+      >
+
+        <h3 class="text-2xl font-bold mb-4">
+          AI Reports
+        </h3>
+
+        <div
+          id="clientHistory"
+          class="space-y-4"
+        ></div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/client.js"></script>
+
+</body>
+
+</html>

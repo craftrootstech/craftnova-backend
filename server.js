@@ -19,7 +19,7 @@ app.use(bodyParser.json({
   limit: "10mb"
 }));
 
-// ===== ENVIRONMENT =====
+// ===== ENV =====
 
 const PORT =
   process.env.PORT || 3001;
@@ -106,6 +106,8 @@ const Lead = mongoose.model("Lead", {
 
 const Output = mongoose.model("Output", {
 
+  clientId: mongoose.Schema.Types.ObjectId,
+
   content: String,
 
   score: String,
@@ -121,6 +123,8 @@ const Output = mongoose.model("Output", {
 });
 
 const Booking = mongoose.model("Booking", {
+
+  clientId: mongoose.Schema.Types.ObjectId,
 
   name: String,
 
@@ -148,6 +152,8 @@ const Booking = mongoose.model("Booking", {
 });
 
 const Payment = mongoose.model("Payment", {
+
+  clientId: mongoose.Schema.Types.ObjectId,
 
   name: String,
 
@@ -229,6 +235,29 @@ const Admin = mongoose.model("Admin", {
   }
 });
 
+const Client = mongoose.model("Client", {
+
+  name: String,
+
+  business: String,
+
+  email: {
+
+    type: String,
+
+    unique: true
+  },
+
+  password: String,
+
+  createdAt: {
+
+    type: Date,
+
+    default: Date.now
+  }
+});
+
 // ===== AUTH =====
 
 function auth(req, res, next) {
@@ -258,7 +287,42 @@ function auth(req, res, next) {
 
     next();
 
-  } catch (err) {
+  } catch {
+
+    return res.status(401).json({
+      error: "Invalid token"
+    });
+  }
+}
+
+function clientAuth(req, res, next) {
+
+  const header =
+    req.headers.authorization;
+
+  if (!header) {
+
+    return res.status(401).json({
+      error: "No token provided"
+    });
+  }
+
+  try {
+
+    const token =
+      header.split(" ")[1];
+
+    const decoded =
+      jwt.verify(
+        token,
+        process.env.JWT_SECRET
+      );
+
+    req.client = decoded;
+
+    next();
+
+  } catch {
 
     return res.status(401).json({
       error: "Invalid token"
@@ -282,188 +346,6 @@ async function safeEmail(payload) {
     );
   }
 }
-
-function enqueueFollowUps(lead) {
-
-  const now = Date.now();
-
-  const jobs = [
-
-    {
-      step: 1,
-      delay: 1 * 24 * 60 * 60 * 1000
-    },
-
-    {
-      step: 2,
-      delay: 3 * 24 * 60 * 60 * 1000
-    },
-
-    {
-      step: 3,
-      delay: 5 * 24 * 60 * 60 * 1000
-    }
-  ];
-
-  jobs.forEach(job => {
-
-    Job.create({
-
-      type: "followup",
-
-      payload: {
-
-        name: lead.name,
-
-        email: lead.email,
-
-        business: lead.business,
-
-        step: job.step
-      },
-
-      runAt: new Date(
-        now + job.delay
-      )
-    });
-  });
-}
-
-// ===== WORKER =====
-
-async function processJobs() {
-
-  try {
-
-    const jobs =
-      await Job.find({
-
-        status: "pending",
-
-        runAt: {
-          $lte: new Date()
-        }
-
-      }).limit(5);
-
-    for (const job of jobs) {
-
-      try {
-
-        job.status = "processing";
-
-        await job.save();
-
-        const {
-
-          name,
-          email,
-          business,
-          step
-
-        } = job.payload;
-
-        let subject = "";
-        let text = "";
-
-        if (step === 1) {
-
-          subject =
-            "Quick follow-up on your audit";
-
-          text = `
-Hi ${name},
-
-Did you review your audit for ${business}?
-
-— CraftNova AI
-`;
-        }
-
-        if (step === 2) {
-
-          subject =
-            `Growth opportunities for ${business}`;
-
-          text = `
-Hi ${name},
-
-Businesses like yours often scale faster with optimized strategy.
-
-— CraftNova AI
-`;
-        }
-
-        if (step === 3) {
-
-          subject =
-            "Ready to improve your marketing?";
-
-          text = `
-Hi ${name},
-
-We can help implement your marketing strategy.
-
-https://craftrootstech.com
-
-— CraftNova AI
-`;
-        }
-
-        await safeEmail({
-
-          from:
-            "noreply@craftrootstech.com",
-
-          to: email,
-
-          subject,
-
-          text
-        });
-
-        job.status = "done";
-
-        await job.save();
-
-      } catch (err) {
-
-        job.attempts += 1;
-
-        job.lastError =
-          err.message;
-
-        if (job.attempts < 3) {
-
-          job.status = "pending";
-
-          job.runAt =
-            new Date(
-              Date.now() + 60000
-            );
-
-        } else {
-
-          job.status = "failed";
-        }
-
-        await job.save();
-      }
-    }
-
-  } catch (err) {
-
-    console.error(
-      "Worker Error:",
-      err.message
-    );
-  }
-}
-
-setInterval(
-  processJobs,
-  10000
-);
 
 // ===== ADMIN =====
 
@@ -506,8 +388,7 @@ app.post("/create-admin", async (req, res) => {
       });
 
     res.json({
-      success: true,
-      admin
+      success: true
     });
 
   } catch (err) {
@@ -561,7 +442,7 @@ app.post("/admin-login", async (req, res) => {
 
         {
           id: admin._id,
-          email: admin.email
+          role: "admin"
         },
 
         process.env.JWT_SECRET,
@@ -586,266 +467,337 @@ app.post("/admin-login", async (req, res) => {
   }
 });
 
+// ===== CLIENT AUTH =====
+
+app.post("/client-signup", async (req, res) => {
+
+  try {
+
+    const {
+
+      name,
+      business,
+      email,
+      password
+
+    } = req.body;
+
+    const exists =
+      await Client.findOne({
+        email
+      });
+
+    if (exists) {
+
+      return res.status(400).json({
+        error:
+          "Client already exists"
+      });
+    }
+
+    const hashed =
+      await bcrypt.hash(
+        password,
+        10
+      );
+
+    const client =
+      await Client.create({
+
+        name,
+        business,
+        email,
+
+        password: hashed
+      });
+
+    res.json({
+      success: true,
+      client
+    });
+
+  } catch (err) {
+
+    res.status(500).json({
+      error: err.message
+    });
+  }
+});
+
+app.post("/client-login", async (req, res) => {
+
+  try {
+
+    const {
+
+      email,
+      password
+
+    } = req.body;
+
+    const client =
+      await Client.findOne({
+        email
+      });
+
+    if (!client) {
+
+      return res.status(401).json({
+        error:
+          "Invalid credentials"
+      });
+    }
+
+    const valid =
+      await bcrypt.compare(
+        password,
+        client.password
+      );
+
+    if (!valid) {
+
+      return res.status(401).json({
+        error:
+          "Invalid credentials"
+      });
+    }
+
+    const token =
+      jwt.sign(
+
+        {
+
+          id: client._id,
+
+          email: client.email,
+
+          role: "client"
+        },
+
+        process.env.JWT_SECRET,
+
+        {
+          expiresIn: "7d"
+        }
+      );
+
+    res.json({
+
+      success: true,
+
+      token
+    });
+
+  } catch (err) {
+
+    res.status(500).json({
+      error: err.message
+    });
+  }
+});
+
+// ===== CLIENT DASHBOARD =====
+
+app.get("/client-dashboard", clientAuth, async (req, res) => {
+
+  try {
+
+    const client =
+      await Client.findById(
+        req.client.id
+      );
+
+    const payments =
+      await Payment.find({
+
+        clientId:
+          req.client.id
+      });
+
+    const bookings =
+      await Booking.find({
+
+        clientId:
+          req.client.id
+      });
+
+    const history =
+      await Output.find({
+
+        clientId:
+          req.client.id
+      });
+
+    res.json({
+
+      client,
+
+      payments,
+
+      bookings,
+
+      history
+    });
+
+  } catch (err) {
+
+    res.status(500).json({
+      error: err.message
+    });
+  }
+});
+
 // ===== CRM =====
 
 app.get("/leads", auth, async (req, res) => {
 
-  try {
+  const leads =
+    await Lead.find()
+      .sort({
+        createdAt: -1
+      });
 
-    const leads =
-      await Lead.find()
-        .sort({
-          createdAt: -1
-        });
-
-    res.json(leads);
-
-  } catch (err) {
-
-    res.status(500).json({
-      error: err.message
-    });
-  }
+  res.json(leads);
 });
 
 app.post("/lead-status/:id", auth, async (req, res) => {
 
-  try {
+  const lead =
+    await Lead.findByIdAndUpdate(
 
-    const lead =
-      await Lead.findByIdAndUpdate(
+      req.params.id,
 
-        req.params.id,
+      {
+        status:
+          req.body.status
+      },
 
-        {
-          status:
-            req.body.status
-        },
+      {
+        new: true
+      }
+    );
 
-        {
-          new: true
-        }
-      );
-
-    res.json({
-      success: true,
-      lead
-    });
-
-  } catch (err) {
-
-    res.status(500).json({
-      error: err.message
-    });
-  }
+  res.json({
+    success: true,
+    lead
+  });
 });
 
 app.post("/lead-notes/:id", auth, async (req, res) => {
 
-  try {
+  const lead =
+    await Lead.findByIdAndUpdate(
 
-    const lead =
-      await Lead.findByIdAndUpdate(
+      req.params.id,
 
-        req.params.id,
+      {
+        notes:
+          req.body.notes
+      },
 
-        {
-          notes:
-            req.body.notes
-        },
+      {
+        new: true
+      }
+    );
 
-        {
-          new: true
-        }
-      );
-
-    res.json({
-      success: true,
-      lead
-    });
-
-  } catch (err) {
-
-    res.status(500).json({
-      error: err.message
-    });
-  }
+  res.json({
+    success: true,
+    lead
+  });
 });
 
 app.get("/crm-metrics", auth, async (req, res) => {
 
-  try {
+  const totalLeads =
+    await Lead.countDocuments();
 
-    const totalLeads =
-      await Lead.countDocuments();
-
-    res.json({
-      totalLeads
-    });
-
-  } catch (err) {
-
-    res.status(500).json({
-      error: err.message
-    });
-  }
+  res.json({
+    totalLeads
+  });
 });
 
 // ===== LEADS =====
 
 app.post("/lead", async (req, res) => {
 
-  try {
+  const lead =
+    await Lead.create(req.body);
 
-    const lead =
-      await Lead.create(req.body);
-
-    enqueueFollowUps(lead);
-
-    res.json({
-      success: true
-    });
-
-  } catch (err) {
-
-    res.status(500).json({
-      error: err.message
-    });
-  }
+  res.json({
+    success: true,
+    lead
+  });
 });
 
 // ===== BOOKINGS =====
 
 app.get("/bookings", auth, async (req, res) => {
 
-  try {
+  const bookings =
+    await Booking.find()
+      .sort({
+        createdAt: -1
+      });
 
-    const bookings =
-      await Booking.find()
-        .sort({
-          createdAt: -1
-        });
-
-    res.json(bookings);
-
-  } catch (err) {
-
-    res.status(500).json({
-      error: err.message
-    });
-  }
+  res.json(bookings);
 });
 
 // ===== PAYMENTS =====
 
 app.get("/payments", auth, async (req, res) => {
 
-  try {
+  const payments =
+    await Payment.find()
+      .sort({
+        createdAt: -1
+      });
 
-    const payments =
-      await Payment.find()
-        .sort({
-          createdAt: -1
-        });
-
-    res.json(payments);
-
-  } catch (err) {
-
-    res.status(500).json({
-      error: err.message
-    });
-  }
+  res.json(payments);
 });
 
 app.get("/verify-payment/:id", auth, async (req, res) => {
 
-  try {
+  const payment =
+    await Payment.findByIdAndUpdate(
 
-    const payment =
-      await Payment.findByIdAndUpdate(
+      req.params.id,
 
-        req.params.id,
+      {
 
-        {
+        status: "verified",
 
-          status: "verified",
+        verifiedAt:
+          new Date()
+      },
 
-          verifiedAt:
-            new Date()
-        },
+      {
+        new: true
+      }
+    );
 
-        {
-          new: true
-        }
-      );
+  res.json({
 
-    if (!payment) {
+    success: true,
 
-      return res.status(404).json({
-        error:
-          "Payment not found"
-      });
-    }
-
-    await safeEmail({
-
-      from:
-        "noreply@craftrootstech.com",
-
-      to: payment.email,
-
-      subject:
-        "Payment Verified",
-
-      text: `
-Hi ${payment.name},
-
-Your payment has been verified.
-
-— CraftNova AI
-`
-    });
-
-    res.json({
-
-      success: true,
-
-      payment
-    });
-
-  } catch (err) {
-
-    res.status(500).json({
-      error: err.message
-    });
-  }
+    payment
+  });
 });
 
 // ===== HISTORY =====
 
 app.get("/history", auth, async (req, res) => {
 
-  try {
+  const history =
+    await Output.find()
+      .sort({
+        createdAt: -1
+      })
+      .limit(20);
 
-    const history =
-      await Output.find()
-        .sort({
-          createdAt: -1
-        })
-        .limit(20);
-
-    res.json(history);
-
-  } catch (err) {
-
-    res.status(500).json({
-      error: err.message
-    });
-  }
+  res.json(history);
 });
 
-// ===== AI EMAIL =====
+// ===== AI =====
 
 app.post("/send-email", auth, async (req, res) => {
 
