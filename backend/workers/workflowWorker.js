@@ -1,54 +1,90 @@
-import { Worker } from "bullmq";
+import { Worker }
+from "bullmq";
 
 import redisConnection
 from "../config/redis.js";
 
-const workflowWorker = new Worker(
+import Workflow
+from "../models/Workflow.js";
 
-    "workflowQueue",
+const workflowWorker =
+new Worker(
 
-    async (job) => {
+  "workflowQueue",
 
-        console.log(
-            "Processing workflow:",
-            job.id
-        );
+  async (job) => {
 
-        console.log(
-            "Workflow data:",
-            job.data
-        );
+    const workflow =
+    await Workflow.findById(
+      job.data.workflowId
+    );
 
-        return {
-            success: true
-        };
-    },
+    try {
 
-    {
-        connection: redisConnection
+      workflow.status =
+        "processing";
+
+      workflow.startedAt =
+        new Date();
+
+      await workflow.save();
+
+      console.log(
+        "Processing workflow:",
+        workflow._id
+      );
+
+      console.log(
+        "Payload:",
+        workflow.payload
+      );
+
+      // ===== SIMULATED AI EXECUTION =====
+
+      const result = {
+
+        success: true,
+
+        processedAt:
+          new Date(),
+
+        message:
+          "Workflow executed successfully"
+      };
+
+      workflow.status =
+        "completed";
+
+      workflow.result =
+        result;
+
+      workflow.completedAt =
+        new Date();
+
+      await workflow.save();
+
+      console.log(
+        "Workflow completed:"
+      );
+
+    } catch (error) {
+
+      workflow.status =
+        "failed";
+
+      workflow.error =
+        error.message;
+
+      await workflow.save();
+
+      console.error(error);
     }
-);
+  },
 
-workflowWorker.on(
-    "completed",
-    (job) => {
-
-        console.log(
-            `Workflow ${job.id} completed`
-        );
-    }
-);
-
-workflowWorker.on(
-    "failed",
-    (job, err) => {
-
-        console.log(
-            `Workflow ${job.id} failed`
-        );
-
-        console.error(err);
-    }
+  {
+    connection:
+      redisConnection
+  }
 );
 
 export default workflowWorker;
