@@ -1,4 +1,6 @@
-// ===== AUTH CHECK =====
+// =====================================================
+// AUTH CHECK
+// =====================================================
 
 window.onload = async () => {
 
@@ -12,8 +14,6 @@ window.onload = async () => {
 
     return;
   }
-
-  // ===== LOGOUT BUTTON =====
 
   const header =
     document.querySelector("header");
@@ -37,9 +37,225 @@ window.onload = async () => {
   await loadLeadMetrics();
 
   await loadCRM();
+
+  await loadWorkflows();
+
+  // AUTO REFRESH
+
+  setInterval(() => {
+
+    loadWorkflows();
+
+  }, 5000);
 };
 
-// ===== AI =====
+// =====================================================
+// WORKFLOW ENGINE
+// =====================================================
+
+async function loadWorkflows() {
+
+  try {
+
+    const response =
+      await fetch(
+
+        `${API_BASE}/api/workflows`
+      );
+
+    const data =
+      await response.json();
+
+    const workflows =
+      data.workflows || [];
+
+    // ===== METRICS =====
+
+    const queued =
+      workflows.filter(
+        w => w.status === "queued"
+      ).length;
+
+    const processing =
+      workflows.filter(
+        w => w.status === "processing"
+      ).length;
+
+    const completed =
+      workflows.filter(
+        w => w.status === "completed"
+      ).length;
+
+    const failed =
+      workflows.filter(
+        w => w.status === "failed"
+      ).length;
+
+    document.getElementById(
+      "queuedCount"
+    ).innerText = queued;
+
+    document.getElementById(
+      "processingCount"
+    ).innerText = processing;
+
+    document.getElementById(
+      "completedCount"
+    ).innerText = completed;
+
+    document.getElementById(
+      "failedCount"
+    ).innerText = failed;
+
+    // ===== WORKFLOW PANEL =====
+
+    document.getElementById(
+      "workflowPanel"
+    ).innerHTML = workflows.map(workflow => {
+
+      let statusColor =
+        "text-yellow-400";
+
+      if (
+        workflow.status ===
+        "processing"
+      ) {
+
+        statusColor =
+          "text-blue-400";
+      }
+
+      if (
+        workflow.status ===
+        "completed"
+      ) {
+
+        statusColor =
+          "text-green-400";
+      }
+
+      if (
+        workflow.status ===
+        "failed"
+      ) {
+
+        statusColor =
+          "text-red-400";
+      }
+
+      return `
+
+        <div
+          class="bg-black border border-border rounded-2xl p-5"
+        >
+
+          <div
+            class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4"
+          >
+
+            <div class="space-y-2">
+
+              <div
+                class="flex items-center gap-3"
+              >
+
+                <p class="text-sm text-gray-400">
+                  Workflow Type:
+                </p>
+
+                <span
+                  class="bg-gray-800 px-3 py-1 rounded-lg text-xs uppercase"
+                >
+                  ${workflow.workflowType}
+                </span>
+
+              </div>
+
+              <div
+                class="flex items-center gap-3"
+              >
+
+                <p class="text-sm text-gray-400">
+                  Status:
+                </p>
+
+                <span
+                  class="${statusColor} font-semibold uppercase text-sm"
+                >
+                  ${workflow.status}
+                </span>
+
+              </div>
+
+              <div class="text-xs text-gray-500">
+
+                <p>
+                  Created:
+                  ${new Date(
+                    workflow.createdAt
+                  ).toLocaleString()}
+                </p>
+
+                ${
+                  workflow.completedAt
+
+                  ? `
+
+                    <p>
+                      Completed:
+                      ${new Date(
+                        workflow.completedAt
+                      ).toLocaleString()}
+                    </p>
+
+                  `
+
+                  : ""
+                }
+
+              </div>
+
+            </div>
+
+            <div class="lg:w-2/3">
+
+              <div
+                class="bg-card border border-border rounded-xl p-4 max-h-64 overflow-y-auto"
+              >
+
+                <p class="text-xs text-gray-500 mb-3">
+                  AI OUTPUT
+                </p>
+
+                <pre
+                  class="whitespace-pre-wrap text-sm"
+                >
+
+${workflow.result?.output || "No output yet"}
+
+                </pre>
+
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      `;
+
+    }).join("");
+
+  } catch (err) {
+
+    console.error(err);
+  }
+}
+
+// =====================================================
+// AI
+// =====================================================
 
 function detectAgent(input) {
 
@@ -49,107 +265,136 @@ function detectAgent(input) {
   if (
     text.includes("marketing") ||
     text.includes("content")
-  ) return "content";
+  ) return "marketing";
 
   if (
-    text.includes("data")
-  ) return "data";
+    text.includes("sales")
+  ) return "sales";
 
   if (
-    text.includes("automation")
-  ) return "automation";
+    text.includes("data") ||
+    text.includes("analytics")
+  ) return "analytics";
 
-  return "general";
+  if (
+    text.includes("email")
+  ) return "email";
+
+  return "marketing";
 }
 
-function executeAgent(agent, input) {
-
-  if (agent === "content") {
-
-    return `
-Marketing Strategy:
-
-- Hook
-- Value Proposition
-- CTA
-
-Topic:
-${input}
-`;
-  }
-
-  if (agent === "data") {
-
-    return `
-Data Insights:
-
-${input}
-`;
-  }
-
-  if (agent === "automation") {
-
-    return `
-Automation Workflow:
-
-${input}
-`;
-  }
-
-  return `
-General Response:
-
-${input}
-`;
-}
-
-// ===== RUN AI =====
+// =====================================================
+// RUN AI
+// =====================================================
 
 async function runAI() {
 
   const input =
-    document.getElementById("prompt");
+    document.getElementById(
+      "prompt"
+    );
 
   const output =
-    document.getElementById("output");
+    document.getElementById(
+      "output"
+    );
 
   const text =
     input.value.trim();
 
   if (!text) return;
 
-  const agent =
+  const workflowType =
     detectAgent(text);
 
   output.innerHTML += `
+
     <div class="bg-gray-900 rounded-xl p-4">
+
       <p class="text-blue-400 mb-2">
         > ${text}
       </p>
-    </div>
-  `;
 
-  const result =
-    executeAgent(agent, text);
+      <p class="text-xs text-gray-500">
+        Routing to:
+        ${workflowType} agent
+      </p>
 
-  output.innerHTML += `
-    <div class="bg-black rounded-xl p-4">
-      <pre class="whitespace-pre-wrap text-sm">${result}</pre>
     </div>
+
   `;
 
   input.value = "";
 
-  await apiPost(
-    "/send-email",
-    {
-      message: result,
-      agent
-    }
-  );
+  try {
+
+    const response =
+      await fetch(
+
+        `${API_BASE}/api/workflows/execute`,
+
+        {
+
+          method: "POST",
+
+          headers: {
+
+            "Content-Type":
+              "application/json"
+          },
+
+          body: JSON.stringify({
+
+            workflowType,
+
+            prompt: text
+          })
+        }
+      );
+
+    const data =
+      await response.json();
+
+    output.innerHTML += `
+
+      <div class="bg-black rounded-xl p-4">
+
+        <p class="text-green-400 text-sm">
+          Workflow queued successfully
+        </p>
+
+        <p class="text-xs text-gray-500 mt-2">
+          Workflow ID:
+          ${data.workflow?._id}
+        </p>
+
+      </div>
+
+    `;
+
+    await loadWorkflows();
+
+  } catch (err) {
+
+    console.error(err);
+
+    output.innerHTML += `
+
+      <div class="bg-red-900 rounded-xl p-4">
+
+        <p class="text-red-300 text-sm">
+          Workflow execution failed
+        </p>
+
+      </div>
+
+    `;
+  }
 }
 
-// ===== LEAD =====
+// =====================================================
+// LEAD
+// =====================================================
 
 async function submitLead() {
 
@@ -210,7 +455,9 @@ async function submitLead() {
   }
 }
 
-// ===== HISTORY =====
+// =====================================================
+// HISTORY
+// =====================================================
 
 async function loadHistory() {
 
@@ -244,7 +491,9 @@ ${item.content}
   }
 }
 
-// ===== PAYMENTS =====
+// =====================================================
+// PAYMENTS
+// =====================================================
 
 async function loadPayments() {
 
@@ -280,75 +529,15 @@ async function loadPayments() {
     ).innerText =
       `N$${revenue}`;
 
-    document.getElementById(
-      "paymentsTable"
-    ).innerHTML =
-      data.map(payment => `
-
-        <tr class="border-b border-border">
-
-          <td class="py-4">
-            ${payment.business}
-          </td>
-
-          <td class="py-4">
-            N$${payment.amount}
-          </td>
-
-          <td class="py-4">
-            ${payment.status}
-          </td>
-
-          <td class="py-4">
-
-            ${
-              payment.status !== "verified"
-
-              ? `
-
-              <button
-                onclick="verifyPayment('${payment._id}')"
-                class="bg-green-600 px-3 py-1 rounded-lg text-xs"
-              >
-                Verify
-              </button>
-
-              `
-
-              : "Verified"
-            }
-
-          </td>
-
-        </tr>
-
-      `).join("");
-
   } catch (err) {
 
     console.error(err);
   }
 }
 
-// ===== VERIFY PAYMENT =====
-
-async function verifyPayment(id) {
-
-  try {
-
-    await apiGet(
-      `/verify-payment/${id}`
-    );
-
-    await loadPayments();
-
-  } catch (err) {
-
-    console.error(err);
-  }
-}
-
-// ===== BOOKINGS =====
+// =====================================================
+// BOOKINGS
+// =====================================================
 
 async function loadBookings() {
 
@@ -362,40 +551,15 @@ async function loadBookings() {
     ).innerText =
       data.length;
 
-    document.getElementById(
-      "bookingsTable"
-    ).innerHTML =
-      data.map(booking => `
-
-        <tr class="border-b border-border">
-
-          <td class="py-4">
-            ${booking.business}
-          </td>
-
-          <td class="py-4">
-            ${booking.date}
-          </td>
-
-          <td class="py-4">
-            ${booking.time}
-          </td>
-
-          <td class="py-4">
-            ${booking.status}
-          </td>
-
-        </tr>
-
-      `).join("");
-
   } catch (err) {
 
     console.error(err);
   }
 }
 
-// ===== CRM METRICS =====
+// =====================================================
+// CRM METRICS
+// =====================================================
 
 async function loadLeadMetrics() {
 
@@ -415,7 +579,9 @@ async function loadLeadMetrics() {
   }
 }
 
-// ===== CRM =====
+// =====================================================
+// CRM
+// =====================================================
 
 async function loadCRM() {
 
@@ -440,48 +606,11 @@ async function loadCRM() {
           </td>
 
           <td class="py-4">
-
-            <select
-              onchange="updateLeadStatus('${lead._id}', this.value)"
-              class="bg-black border border-border rounded-lg px-2 py-1"
-            >
-
-              ${[
-                "new",
-                "interested",
-                "paid",
-                "booked",
-                "client",
-                "completed"
-              ].map(status => `
-
-                <option
-                  value="${status}"
-                  ${
-                    lead.status === status
-                    ? "selected"
-                    : ""
-                  }
-                >
-
-                  ${status}
-
-                </option>
-
-              `).join("")}
-
-            </select>
-
+            ${lead.status || "new"}
           </td>
 
           <td class="py-4">
-
-            <textarea
-              onchange="updateLeadNotes('${lead._id}', this.value)"
-              class="bg-black border border-border rounded-lg p-2 w-full text-xs"
-              rows="2"
-            >${lead.notes || ""}</textarea>
-
+            ${lead.notes || "-"}
           </td>
 
           <td class="py-4 text-green-400">
@@ -491,48 +620,6 @@ async function loadCRM() {
         </tr>
 
       `).join("");
-
-  } catch (err) {
-
-    console.error(err);
-  }
-}
-
-// ===== UPDATE STATUS =====
-
-async function updateLeadStatus(id, status) {
-
-  try {
-
-    await apiPost(
-
-      `/lead-status/${id}`,
-
-      {
-        status
-      }
-    );
-
-  } catch (err) {
-
-    console.error(err);
-  }
-}
-
-// ===== UPDATE NOTES =====
-
-async function updateLeadNotes(id, notes) {
-
-  try {
-
-    await apiPost(
-
-      `/lead-notes/${id}`,
-
-      {
-        notes
-      }
-    );
 
   } catch (err) {
 

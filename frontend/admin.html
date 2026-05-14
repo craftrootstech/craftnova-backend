@@ -84,6 +84,10 @@
         Analytics
       </a>
 
+      <a href="#" class="block hover:text-primary transition">
+        AI Workflows
+      </a>
+
     </nav>
 
   </aside>
@@ -103,7 +107,7 @@
         </h1>
 
         <p class="text-gray-400 mt-2">
-          Operational AI + CRM Control Center
+          Distributed AI Operations Control Center
         </p>
 
       </div>
@@ -193,6 +197,112 @@
 
     </section>
 
+    <!-- AI WORKFLOW ENGINE -->
+
+    <section
+      class="bg-card border border-border rounded-2xl p-6"
+    >
+
+      <div class="flex items-center justify-between mb-6">
+
+        <div>
+
+          <h2 class="text-2xl font-semibold">
+            AI Workflow Engine
+          </h2>
+
+          <p class="text-gray-400 text-sm mt-1">
+            Distributed orchestration monitoring system
+          </p>
+
+        </div>
+
+        <button
+          onclick="loadWorkflows()"
+          class="bg-primary px-4 py-2 rounded-xl text-sm hover:opacity-90"
+        >
+          Refresh
+        </button>
+
+      </div>
+
+      <!-- WORKFLOW METRICS -->
+
+      <div
+        class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6"
+      >
+
+        <div class="bg-black rounded-xl p-4">
+
+          <p class="text-gray-400 text-sm">
+            Queued
+          </p>
+
+          <h3
+            id="queuedCount"
+            class="text-2xl font-bold text-yellow-400 mt-2"
+          >
+            0
+          </h3>
+
+        </div>
+
+        <div class="bg-black rounded-xl p-4">
+
+          <p class="text-gray-400 text-sm">
+            Processing
+          </p>
+
+          <h3
+            id="processingCount"
+            class="text-2xl font-bold text-blue-400 mt-2"
+          >
+            0
+          </h3>
+
+        </div>
+
+        <div class="bg-black rounded-xl p-4">
+
+          <p class="text-gray-400 text-sm">
+            Completed
+          </p>
+
+          <h3
+            id="completedCount"
+            class="text-2xl font-bold text-green-400 mt-2"
+          >
+            0
+          </h3>
+
+        </div>
+
+        <div class="bg-black rounded-xl p-4">
+
+          <p class="text-gray-400 text-sm">
+            Failed
+          </p>
+
+          <h3
+            id="failedCount"
+            class="text-2xl font-bold text-red-400 mt-2"
+          >
+            0
+          </h3>
+
+        </div>
+
+      </div>
+
+      <!-- WORKFLOW PANEL -->
+
+      <div
+        id="workflowPanel"
+        class="space-y-4"
+      ></div>
+
+    </section>
+
     <!-- LEAD CAPTURE -->
 
     <section
@@ -277,148 +387,6 @@
 
     </section>
 
-    <!-- PAYMENTS -->
-
-    <section
-      class="bg-card border border-border rounded-2xl p-6"
-    >
-
-      <h2 class="text-xl font-semibold mb-6">
-        Payment Management
-      </h2>
-
-      <div class="overflow-x-auto">
-
-        <table class="w-full text-sm">
-
-          <thead>
-
-            <tr class="border-b border-border text-gray-400">
-
-              <th class="text-left pb-4">
-                Business
-              </th>
-
-              <th class="text-left pb-4">
-                Amount
-              </th>
-
-              <th class="text-left pb-4">
-                Status
-              </th>
-
-              <th class="text-left pb-4">
-                Action
-              </th>
-
-            </tr>
-
-          </thead>
-
-          <tbody id="paymentsTable"></tbody>
-
-        </table>
-
-      </div>
-
-    </section>
-
-    <!-- BOOKINGS -->
-
-    <section
-      class="bg-card border border-border rounded-2xl p-6"
-    >
-
-      <h2 class="text-xl font-semibold mb-6">
-        Bookings
-      </h2>
-
-      <div class="overflow-x-auto">
-
-        <table class="w-full text-sm">
-
-          <thead>
-
-            <tr class="border-b border-border text-gray-400">
-
-              <th class="text-left pb-4">
-                Business
-              </th>
-
-              <th class="text-left pb-4">
-                Date
-              </th>
-
-              <th class="text-left pb-4">
-                Time
-              </th>
-
-              <th class="text-left pb-4">
-                Status
-              </th>
-
-            </tr>
-
-          </thead>
-
-          <tbody id="bookingsTable"></tbody>
-
-        </table>
-
-      </div>
-
-    </section>
-
-    <!-- CRM -->
-
-    <section
-      class="bg-card border border-border rounded-2xl p-6"
-    >
-
-      <h2 class="text-xl font-semibold mb-6">
-        CRM Pipeline
-      </h2>
-
-      <div class="overflow-x-auto">
-
-        <table class="w-full text-sm">
-
-          <thead>
-
-            <tr class="border-b border-border text-gray-400">
-
-              <th class="text-left pb-4">
-                Business
-              </th>
-
-              <th class="text-left pb-4">
-                Email
-              </th>
-
-              <th class="text-left pb-4">
-                Status
-              </th>
-
-              <th class="text-left pb-4">
-                Notes
-              </th>
-
-              <th class="text-left pb-4">
-                Action
-              </th>
-
-            </tr>
-
-          </thead>
-
-          <tbody id="crmTable"></tbody>
-
-        </table>
-
-      </div>
-
-    </section>
-
     <!-- HISTORY -->
 
     <section
@@ -439,10 +407,11 @@
   </main>
 
 </div>
+
 <script src="js/config.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/api.js"></script>
 <script src="js/admin.js"></script>
-</body>
 
+</body>
 </html>
