@@ -7,17 +7,38 @@ from "../config/redis.js";
 import Workflow
 from "../models/Workflow.js";
 
-const workflowWorker =
+import { executeWorkflow }
+from "../orchestrator/workflowExecutor.js";
+
+console.log(
+  "Initializing workflow worker..."
+);
+
+const worker =
 new Worker(
 
   "workflowQueue",
 
   async (job) => {
 
+    console.log(
+      "Job received:",
+      job.id
+    );
+
     const workflow =
     await Workflow.findById(
       job.data.workflowId
     );
+
+    if (!workflow) {
+
+      console.log(
+        "Workflow not found"
+      );
+
+      return;
+    }
 
     try {
 
@@ -30,27 +51,21 @@ new Worker(
       await workflow.save();
 
       console.log(
-        "Processing workflow:",
+        "Executing workflow:",
         workflow._id
       );
 
-      console.log(
-        "Payload:",
-        workflow.payload
+      const result =
+      await executeWorkflow(
+        workflow
       );
 
-      // ===== SIMULATED AI EXECUTION =====
+      if (!result.success) {
 
-      const result = {
-
-        success: true,
-
-        processedAt:
-          new Date(),
-
-        message:
-          "Workflow executed successfully"
-      };
+        throw new Error(
+          result.error
+        );
+      }
 
       workflow.status =
         "completed";
@@ -64,7 +79,8 @@ new Worker(
       await workflow.save();
 
       console.log(
-        "Workflow completed:"
+        "Workflow completed:",
+        workflow._id
       );
 
     } catch (error) {
@@ -77,7 +93,10 @@ new Worker(
 
       await workflow.save();
 
-      console.error(error);
+      console.error(
+        "Workflow failed:",
+        error
+      );
     }
   },
 
@@ -87,4 +106,43 @@ new Worker(
   }
 );
 
-export default workflowWorker;
+worker.on(
+  "completed",
+
+  (job) => {
+
+    console.log(
+      `Job ${job.id} completed`
+    );
+  }
+);
+
+worker.on(
+  "failed",
+
+  (job, err) => {
+
+    console.error(
+      `Job ${job?.id} failed:`,
+      err
+    );
+  }
+);
+
+worker.on(
+  "error",
+
+  (err) => {
+
+    console.error(
+      "Worker error:",
+      err
+    );
+  }
+);
+
+console.log(
+  "Workflow worker ready"
+);
+
+export default worker;

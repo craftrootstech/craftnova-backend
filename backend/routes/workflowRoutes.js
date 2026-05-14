@@ -22,11 +22,15 @@ router.post(
       const workflow =
       await Workflow.create({
 
-        workflowType: "test",
+        workflowType:
+          req.body.workflowType
+          || "marketing",
 
-        payload: req.body,
+        payload:
+          req.body,
 
-        status: "queued"
+        status:
+          "queued"
       });
 
       const job =
@@ -43,7 +47,8 @@ router.post(
         }
       );
 
-      workflow.jobId = job.id;
+      workflow.jobId =
+        job.id;
 
       await workflow.save();
 
@@ -115,55 +120,6 @@ router.get(
 );
 
 // =====================================================
-// GET SINGLE WORKFLOW
-// =====================================================
-
-router.get(
-  "/:id",
-
-  async (req, res) => {
-
-    try {
-
-      const workflow =
-      await Workflow.findById(
-        req.params.id
-      );
-
-      if (!workflow) {
-
-        return res.status(404).json({
-
-          success: false,
-
-          message:
-            "Workflow not found"
-        });
-      }
-
-      res.json({
-
-        success: true,
-
-        workflow
-      });
-
-    } catch (error) {
-
-      console.error(error);
-
-      res.status(500).json({
-
-        success: false,
-
-        message:
-          error.message
-      });
-    }
-  }
-);
-
-// =====================================================
 // WORKFLOW STATUS SUMMARY
 // =====================================================
 
@@ -208,6 +164,56 @@ router.get(
 
           failed
         }
+      });
+
+    } catch (error) {
+
+      console.error(error);
+
+      res.status(500).json({
+
+        success: false,
+
+        message:
+          error.message
+      });
+    }
+  }
+);
+
+// =====================================================
+// GET SINGLE WORKFLOW
+// IMPORTANT: MUST BE LAST
+// =====================================================
+
+router.get(
+  "/:id",
+
+  async (req, res) => {
+
+    try {
+
+      const workflow =
+      await Workflow.findById(
+        req.params.id
+      );
+
+      if (!workflow) {
+
+        return res.status(404).json({
+
+          success: false,
+
+          message:
+            "Workflow not found"
+        });
+      }
+
+      res.json({
+
+        success: true,
+
+        workflow
       });
 
     } catch (error) {

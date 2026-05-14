@@ -1,9 +1,13 @@
 import IORedis from "ioredis";
 
-const redisConnection = new IORedis({
-    host: process.env.REDIS_HOST,
-    port: process.env.REDIS_PORT,
-    maxRetriesPerRequest: null
+const redisConnection =
+new IORedis({
+
+  host: "127.0.0.1",
+
+  port: 6379,
+
+  maxRetriesPerRequest: null
 });
 
 export default redisConnection;
