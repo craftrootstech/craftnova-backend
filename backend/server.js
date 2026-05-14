@@ -1,13 +1,22 @@
-require("dotenv").config();
+import dotenv from "dotenv";
 
-const express = require("express");
-const cors = require("cors");
-const bodyParser = require("body-parser");
-const mongoose = require("mongoose");
-const { Resend } = require("resend");
-const OpenAI = require("openai");
-const jwt = require("jsonwebtoken");
-const bcrypt = require("bcryptjs");
+dotenv.config();
+
+import express from "express";
+import cors from "cors";
+import bodyParser from "body-parser";
+import mongoose from "mongoose";
+
+import { Resend } from "resend";
+
+import OpenAI from "openai";
+
+import jwt from "jsonwebtoken";
+
+import bcrypt from "bcryptjs";
+
+import workflowRoutes
+from "./routes/workflowRoutes.js";
 
 const app = express();
 
@@ -18,6 +27,13 @@ app.use(cors());
 app.use(bodyParser.json({
   limit: "10mb"
 }));
+
+// ===== WORKFLOW ROUTES =====
+
+app.use(
+  "/api/workflows",
+  workflowRoutes
+);
 
 // ===== ENV =====
 
@@ -345,9 +361,9 @@ function clientAuth(req, res, next) {
         process.env.JWT_SECRET
       );
 
-    req.client = decoded;
+      req.client = decoded;
 
-    next();
+      next();
 
   } catch {
 
@@ -381,10 +397,8 @@ app.post("/create-admin", async (req, res) => {
   try {
 
     const {
-
       email,
       password
-
     } = req.body;
 
     const exists =
@@ -430,10 +444,8 @@ app.post("/admin-login", async (req, res) => {
   try {
 
     const {
-
       email,
       password
-
     } = req.body;
 
     const admin =
@@ -501,12 +513,10 @@ app.post("/client-signup", async (req, res) => {
   try {
 
     const {
-
       name,
       business,
       email,
       password
-
     } = req.body;
 
     const exists =
@@ -553,15 +563,15 @@ app.post("/client-signup", async (req, res) => {
   }
 });
 
+// ===== CLIENT LOGIN =====
+
 app.post("/client-login", async (req, res) => {
 
   try {
 
     const {
-
       email,
       password
-
     } = req.body;
 
     const client =
@@ -627,356 +637,41 @@ app.post("/client-login", async (req, res) => {
   }
 });
 
-// ===== CLIENT DASHBOARD =====
+// KEEP ALL YOUR REMAINING ROUTES EXACTLY AS THEY ARE
+// FROM:
+// CLIENT DASHBOARD
+// CRM
+// LEADS
+// BOOKINGS
+// PAYMENTS
+// HISTORY
+// AI
+// ETC.
 
-app.get("/client-dashboard", clientAuth, async (req, res) => {
+// ===== WORKFLOW HEALTH =====
 
-  try {
+app.get(
+  "/workflow-health",
 
-    const client =
-      await Client.findById(
-        req.client.id
-      );
-
-    const payments =
-      await Payment.find({
-
-        clientId:
-          req.client.id
-      }).sort({
-        createdAt: -1
-      });
-
-    const bookings =
-      await Booking.find({
-
-        clientId:
-          req.client.id
-      }).sort({
-        createdAt: -1
-      });
-
-    const history =
-      await Output.find({
-
-        clientId:
-          req.client.id
-      }).sort({
-        createdAt: -1
-      });
-
-    res.json({
-
-      client,
-
-      payments,
-
-      bookings,
-
-      history
-    });
-
-  } catch (err) {
-
-    res.status(500).json({
-      error: err.message
-    });
-  }
-});
-
-// ===== CRM =====
-
-app.get("/leads", auth, async (req, res) => {
-
-  const leads =
-    await Lead.find()
-      .sort({
-        createdAt: -1
-      });
-
-  res.json(leads);
-});
-
-app.post("/lead-status/:id", auth, async (req, res) => {
-
-  const lead =
-    await Lead.findByIdAndUpdate(
-
-      req.params.id,
-
-      {
-        status:
-          req.body.status
-      },
-
-      {
-        new: true
-      }
-    );
-
-  res.json({
-
-    success: true,
-
-    lead
-  });
-});
-
-app.post("/lead-notes/:id", auth, async (req, res) => {
-
-  const lead =
-    await Lead.findByIdAndUpdate(
-
-      req.params.id,
-
-      {
-        notes:
-          req.body.notes
-      },
-
-      {
-        new: true
-      }
-    );
-
-  res.json({
-
-    success: true,
-
-    lead
-  });
-});
-
-app.get("/crm-metrics", auth, async (req, res) => {
-
-  const totalLeads =
-    await Lead.countDocuments();
-
-  res.json({
-    totalLeads
-  });
-});
-
-// ===== LEADS =====
-
-app.post("/lead", async (req, res) => {
-
-  const lead =
-    await Lead.create(req.body);
-
-  res.json({
-
-    success: true,
-
-    lead
-  });
-});
-
-// ===== CLIENT BOOKINGS =====
-
-app.post("/client-booking", clientAuth, async (req, res) => {
-
-  try {
-
-    const client =
-      await Client.findById(
-        req.client.id
-      );
-
-    const booking =
-      await Booking.create({
-
-        clientId:
-          client._id,
-
-        clientEmail:
-          client.email,
-
-        clientBusiness:
-          client.business,
-
-        ...req.body
-      });
+  (req, res) => {
 
     res.json({
 
       success: true,
 
-      booking
-    });
-
-  } catch (err) {
-
-    res.status(500).json({
-      error: err.message
+      message:
+        "Workflow infrastructure active"
     });
   }
-});
+);
 
-// ===== BOOKINGS =====
+// ===== SERVER =====
 
-app.get("/bookings", auth, async (req, res) => {
+app.listen(PORT, () => {
 
-  const bookings =
-    await Booking.find()
-      .sort({
-        createdAt: -1
-      });
-
-  res.json(bookings);
-});
-
-// ===== CLIENT PAYMENTS =====
-
-app.post("/client-payment", clientAuth, async (req, res) => {
-
-  try {
-
-    const client =
-      await Client.findById(
-        req.client.id
-      );
-
-    const payment =
-      await Payment.create({
-
-        clientId:
-          client._id,
-
-        clientEmail:
-          client.email,
-
-        clientBusiness:
-          client.business,
-
-        ...req.body
-      });
-
-    res.json({
-
-      success: true,
-
-      payment
-    });
-
-  } catch (err) {
-
-    res.status(500).json({
-      error: err.message
-    });
-  }
-});
-
-// ===== PAYMENTS =====
-
-app.get("/payments", auth, async (req, res) => {
-
-  const payments =
-    await Payment.find()
-      .sort({
-        createdAt: -1
-      });
-
-  res.json(payments);
-});
-
-app.get("/verify-payment/:id", auth, async (req, res) => {
-
-  const payment =
-    await Payment.findByIdAndUpdate(
-
-      req.params.id,
-
-      {
-
-        status: "verified",
-
-        verifiedAt:
-          new Date()
-      },
-
-      {
-        new: true
-      }
-    );
-
-  res.json({
-
-    success: true,
-
-    payment
-  });
-});
-
-// ===== HISTORY =====
-
-app.get("/history", auth, async (req, res) => {
-
-  const history =
-    await Output.find()
-      .sort({
-        createdAt: -1
-      })
-      .limit(20);
-
-  res.json(history);
-});
-
-// ===== AI =====
-
-app.post("/send-email", auth, async (req, res) => {
-
-  try {
-
-    const {
-
-      message,
-      agent
-
-    } = req.body;
-
-    await safeEmail({
-
-      from:
-        "noreply@craftrootstech.com",
-
-      to:
-        "info@craftrootstech.com",
-
-      subject:
-        `CraftNova AI Output (${agent})`,
-
-      text: message
-    });
-
-    await Output.create({
-
-      clientId:
-        req.admin?.id || null,
-
-      clientEmail:
-        req.admin?.email || null,
-
-      clientBusiness:
-        "CraftNova",
-
-      content: message,
-
-      score: "N/A",
-
-      agent
-    });
-
-    res.json({
-      success: true
-    });
-
-  } catch (err) {
-
-    res.status(500).json({
-      error: err.message
-    });
-  }
+  console.log(
+    `🚀 CraftNova running on port ${PORT}`
+  );
 });
 
 // ===== SERVER =====
